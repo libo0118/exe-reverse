@@ -36,6 +36,12 @@ without a check.
 | Your signature-based patch worked on one version and misses on the next | `references/aob-and-signatures.md` |
 | Two supposedly identical builds behave differently | `references/pe-diff-and-versions.md` |
 | The target is a .NET assembly and hex-patching it does nothing | `references/managed-dotnet.md` |
+| A .NET assembly decompiles, but the names are gone or the C# does not add up | `references/dotnet-decompilation.md` |
+| A Unity game's `global-metadata.dat` is missing, empty or unreadable beside its `GameAssembly.dll` | `references/unity-il2cpp.md` |
+| il2cppdumper reports `CodeRegistration : 0`, or the metadata version disagrees with the struct it parses | `references/unity-il2cpp.md` |
+| A hot-update assembly decompiles to high-entropy IL, or an AssetBundle refuses to open | `references/unity-il2cpp.md` |
+| The target directory holds `python3xx.dll`, `_internal` or `pyarmor_runtime` | `references/python-runtime-bundles.md` |
+| A Python module is high-entropy while the rest of the packaged program is ordinary | `references/python-runtime-bundles.md` |
 | The payload holds a large `data/app.so` and hardly any native code | `references/flutter-and-dart-aot.md` |
 | The sample is an installer, and the interesting binary is nowhere on disk after install | `references/installers-and-packaging.md` |
 | The file is a driver, or it refuses to load without a driver present | `references/kernel-and-drivers.md` |
@@ -46,6 +52,9 @@ without a check.
 | A tool returns more output than you can read, or the same run returns different amounts | `references/toolchain.md` |
 | The binary was produced by a compiler you have not identified | `references/compiler-fingerprints.md` |
 | The target is written in Go, Rust or Delphi and the call structure looks wrong | `references/compiler-fingerprints.md` |
+| A detour or code cave crashes its callee, or the arguments arrive at wrong offsets | `references/assembly-idioms.md` |
+| A 32-bit target's licence file or registry key is absent from the path the documentation gives | `references/assembly-idioms.md` |
+| A prologue does not look like the compiler the headers named | `references/assembly-idioms.md` |
 | You are about to conclude "it must be server-side" | `references/network-activated-licensing.md` |
 | You cannot tell whether a failure is your patch or the target's own behaviour | `references/verification.md` |
 | You are about to write off a route as impossible | `references/protectors-and-packers.md` |
@@ -67,6 +76,7 @@ reference that is loaded at the wrong moment costs context and answers nothing.
 | `references/pe-structure.md` | a header, section, import, relocation, TLS or checksum question — or when an offset and an RVA disagree |
 | `references/static-analysis.md` | reading code: disassembly, decompilation, structure recovery, and where a listing lies |
 | `references/compiler-fingerprints.md` | the toolchain is unidentified, or the call structure does not look like C or C++ |
+| `references/assembly-idioms.md` | a listing must be read at the instruction level: the convention moves the arguments, the prologue says who produced the code, a string instruction stands in for a library routine, or a detour must preserve the frame |
 | `references/pe-diff-and-versions.md` | two builds must be compared, or a finding has to survive a version change |
 | `references/patching.md` | any byte edit: site choice, equal-length discipline, checksum, and proving the patch is reached |
 | `references/aob-and-signatures.md` | a patch must be located across versions rather than at one address |
@@ -82,6 +92,9 @@ reference that is loaded at the wrong moment costs context and answers nothing.
 | `references/virtualization-and-flattening.md` | the code is readable but its shape is wrong: dispatchers, opaque predicates, virtual machines |
 | `references/symbolic-execution.md` | reading has stopped paying: when a solver or an emulator is the cheaper route |
 | `references/managed-dotnet.md` | a managed assembly, or a mixed-mode one, is the target |
+| `references/dotnet-decompilation.md` | a managed assembly must be read rather than classified: deobfuscation, decompiler choice, CIL reading, and the path from a method body to a business rule |
+| `references/unity-il2cpp.md` | a Unity IL2CPP build: the metadata file is missing or protected, the dumper will not find its registrations, or the hot-update and bundle layers must be read |
+| `references/python-runtime-bundles.md` | a packaged Python program: which packager produced it, the interpreter version it needs, the wrapper around its code objects, or Python compiled to native code |
 | `references/installers-and-packaging.md` | the sample arrives as an installer or a package |
 | `references/flutter-and-dart-aot.md` | the payload is a Flutter application: an ELF `app.so` inside a Windows package, with the behaviour in compiled Dart |
 | `references/kernel-and-drivers.md` | the boundary where user-mode tooling stops |

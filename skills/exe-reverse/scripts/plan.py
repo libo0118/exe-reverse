@@ -272,7 +272,8 @@ INTENTS = {
     'analyze-managed': {
         'name': 'Read or change a .NET assembly',
         'needs': ['managed_inspect', 'pe_structure_read'],
-        'reads': ['managed-dotnet.md', 'patching.md', 'integrity-checks.md'],
+        'reads': ['managed-dotnet.md', 'dotnet-decompilation.md', 'patching.md',
+                  'integrity-checks.md'],
         'ask': [
             'Is the logic in CIL or in a native component the assembly loads? A managed wrapper '
             'around native code is a native problem wearing a managed shell.',

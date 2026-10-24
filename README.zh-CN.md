@@ -103,7 +103,8 @@ export EXEREV_TOOLS=<dir>:<dir>                  # POSIX
 
 它覆盖什么、刻意不覆盖什么，写在 skill 自身（`skills/exe-reverse/references/coverage-and-limits.md`）。
 简版：Windows PE 的 x86 与 x64，在真正做过的层上做得深 —— 初筛、补丁、特征码、授权归类、壳、托管代码，
-以及硬件观测的路线图。服务端权威的破解、通用自动化去虚拟化器、把"攻破某个具名商业保护产品"作为
+以及硬件观测的路线图。另外两层应用运行时 —— Unity IL2CPP 的元数据恢复与打包后的 Python —— 依据公开
+文章整理，因此标记为 `unverified`。服务端权威的破解、通用自动化去虚拟化器、把"攻破某个具名商业保护产品"作为
 产品级宣称，以及对本仓库未测量过的 Windows 版本做任何保证，都**不在**覆盖内，而 skill 被写成如实说明
 并停下，而不是把最近的一份文档流程套到一个它并非为此而写的目标上。
 
@@ -136,6 +137,8 @@ push 时跑完整套：六道门、Python 3.11–3.14 的测试矩阵、以及 l
 无法演练哪些场景。
 
 ---
+
+Proudly supported by the [LINUX DO](https://linux.do) community.
 
 ## 免责声明
 

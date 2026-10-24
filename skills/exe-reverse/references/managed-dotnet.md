@@ -93,7 +93,11 @@ Tooling this repository's host probe looks for, and what each is for:
   which runtime the sample was probably built against and which packaging shapes are even
   producible on this machine.
 - No decompiler is required to locate behaviour, but a name-preserving disassembly is much
-  faster than reading token numbers by hand.
+faster than reading token numbers by hand.
+
+Which of these to use for which question, how to read a CIL listing, and how to go from a method
+body to a statement about business logic is `dotnet-decompilation.md`. This file stops at
+classification and at the structural rules for an edit.
 
 Cheap questions that answer a lot before any editing: is the assembly signed with a strong
 name, does it carry a mixed-mode native part, does it reference a licensing or activation

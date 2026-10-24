@@ -136,7 +136,9 @@ an evidence record.
 What it covers, and what it deliberately does not, is stated in the skill itself
 (`skills/exe-reverse/references/coverage-and-limits.md`). The short version: Windows PE on x86 and
 x64, deep on the layers that have been worked through — triage, patching, signatures, licensing
-classification, protectors, managed code, and the hardware-observation route map. Defeating a
+classification, protectors, managed code, and the hardware-observation route map. Two
+application-runtime layers — Unity IL2CPP metadata recovery and packaged Python — are documented
+from public write-ups, and are graded `unverified` for that reason. Defeating a
 server-side authority, a fully automated general-purpose devirtualiser, defeating a named commercial
 protector as a product claim, and any guarantee on a Windows build this repository has not measured
 are **not** covered, and the skill is written to say so and stop rather than apply the nearest
@@ -175,6 +177,8 @@ what each script actually did, which independent method confirmed it, and what t
 exercise.
 
 ---
+
+Proudly supported by the [LINUX DO](https://linux.do) community.
 
 ## Disclaimer
 

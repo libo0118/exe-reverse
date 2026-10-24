@@ -502,6 +502,50 @@ ATOMS = {
         'note': 'Assembles CIL text back into an assembly, which is how a managed edit is made '
                 'without a hex editor touching metadata.',
     },
+    'tool:de4dot': {
+        'name': 'de4dot',
+        'kind': 'tool',
+        'tool': 'de4dot',
+        'install': 'download a de4dot build and put its directory on EXEREV_TOOLS',
+        'est_minutes': 10,
+        'basis': 'unverified',
+        'note': 'Reports which supported protector it recognises with -d, and cleans the ones it '
+                'knows. The output is a new assembly with new tokens, so it is for reading, not '
+                'for patching the shipped file.',
+    },
+    'tool:ilspycmd': {
+        'name': 'ilspycmd (ILSpy command line)',
+        'kind': 'tool',
+        'tool': 'ilspycmd',
+        'install': 'dotnet tool install --global ilspycmd',
+        'est_minutes': 5,
+        'basis': 'unverified',
+        'note': 'Decompiles to C# and prints IL with -il, so the map and the fact can come from '
+                'one install; -l and --dump-table read the metadata without decompiling.',
+    },
+    'tool:dnspy': {
+        'name': 'dnSpyEx',
+        'kind': 'tool',
+        'tool': 'dnSpy',
+        'install': 'download a dnSpyEx release and put its directory on EXEREV_TOOLS',
+        'est_minutes': 10,
+        'basis': 'unverified',
+        'note': 'The managed debugger: breakpoints in decompiled code, locals, an IL editor, and '
+                'the in-memory image for an assembly that decrypts itself. GUI only, so it is '
+                'for a human at the keyboard rather than an unattended run.',
+    },
+    'tool:dotpeek': {
+        'name': 'dotPeek',
+        'kind': 'tool',
+        'tool': 'dotPeek64',
+        'alternatives': ['dotPeek32'],
+        'install': 'download dotPeek from JetBrains and put its directory on EXEREV_TOOLS',
+        'est_minutes': 10,
+        'basis': 'unverified',
+        'note': 'Free Windows decompiler on ReSharper\'s engine. Its advantages over a plain reader '
+                'are navigation, the compiler-generated-code toggle, a Process Explorer that '
+                'opens a loaded module, and exporting a .csproj. GUI only, no command line.',
+    },
 
     # --- language toolchains (for reading their output) -----------------------
     'tool:go': {
@@ -769,10 +813,12 @@ CAPABILITIES = {
     'managed_inspect': {
         'name': 'Inspect or change a managed assembly',
         'required': ['python310'],
-        'any_of': ['tool:ildasm', 'tool:ilasm', 'tool:dotnet'],
+        'any_of': ['tool:ildasm', 'tool:ilasm', 'tool:dotnet', 'tool:de4dot', 'tool:ilspycmd',
+                   'tool:dnspy', 'tool:dotpeek'],
         'note': 'A managed assembly is a different artifact: the logic is CIL and metadata, and '
                 'editing bytes without updating the tables produces something that loads and '
-                'does the wrong thing.',
+                'does the wrong thing. Reading the logic needs a decompiler or a disassembler; '
+                'changing it needs an assembler.',
     },
     'installer_inspect': {
         'name': 'Get at an installer\'s payload without running it',

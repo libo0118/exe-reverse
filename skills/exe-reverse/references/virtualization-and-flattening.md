@@ -15,6 +15,7 @@ Load it when the code is readable but refuses to make sense:
 - a branch whose condition cannot matter, but which the compiler could not have removed
 - a dispatch loop with a table of code addresses, plus a data region the headers say is not code
 - the same routine executes a different number of instructions on two runs with the same input
+- the image grew by an order of magnitude and almost all of the growth is in one section named for a protector
 
 This is a different problem from `protectors-and-packers.md`. There, code is hidden and the question is how
 to see it. Here, code is visible and the question is what it means.
@@ -210,6 +211,55 @@ without evidence that the dispatcher and the handler set are unchanged. Any clai
 opcodes, the shape of the handler table or the state layout is a build-level claim, and belongs in the same
 sentence as the hash of the file it was observed on.
 
+### What a shipping protector looks like from outside
+
+The paragraphs above describe the interpreter a virtualising protector must contain. This subsection is
+the same object seen through a debugger, and it is what makes the recognition table above actionable. It
+is drawn from public write-ups of one commercial protector family on 32-bit builds and is `unverified`
+here: no protected sample was analysed in this repository. The write-ups identify the builds as
+VMProtect 3.x; that is a classification those authors made, not a claim that this route generalises to
+another version or to another product. The **roles** transfer; the register names and
+the constants are properties of those builds and must be re-derived, not copied.
+
+| Artifact | What it looked like | How it was confirmed |
+|---|---|---|
+| The section | the image grew by roughly fifteen times, and almost all of the growth sat in one section named for the protector | section sizes and entropy before and after protection |
+| The entry | a run of `jmp` instructions at the section start, and the process entering through it | a memory-access breakpoint on the section, then one run |
+| The prologue | the physical registers pushed in a run, with junk instructions interleaved between the pushes, and the stack frame that results read as the saved machine state | stepping the prologue once and reading the stack |
+| The bytecode base | built at run time from a saved stack slot plus a delta computed in a register, not read from a static pointer | watch the register that receives the computed address, then dump from it |
+| The virtual registers | a block carved out of the stack by a single `sub esp, imm` (192 bytes in the reported build), read and written as `esp + index` | the allocation instruction, then the accesses that use its offsets |
+| The virtual stack | the existing frame pointer, addressed by offset, holding the values the handler sequence exchanges | the reads and writes around each handler |
+| The handlers | short blocks that each perform one operation on virtual state, ending in a jump through the register holding the next address, or a push-and-return | the disassembly of the section, read as a graph of small blocks |
+| The dispatch | in that version, **no single dispatcher**: each handler jumps to the next, and the entry table at the section start is what a reader mistakes for one | the trace of one run, which shows the successor of a handler is a value, not a table index |
+| The flags | the branch condition is materialised into the virtual state as a word, and the arithmetic that produces it is a `not`/`and` pair rather than a comparison | the handler sequence around a conditional, matched against the branch it decides |
+
+**The method that was reported to work is a trace to the boundary, not a devirtualisation.** The
+interpreter's internals do not need to be understood to answer "which value decides this branch":
+
+1. Start from the observable event — the message box, the refusal text, the value written to the UI — and
+   find the code that produces it. A memory breakpoint on the event's data is the cheapest anchor.
+2. Walk the stack back. **A return address that lands on a push, or on the entry table, is the signature
+   of a protected call**, not a broken walk: the caller's continuation was replaced by the interpreter.
+3. Do not expect a static cross-reference list to name the caller. In the reported case the xref list held
+   24 callers and not one of them fired at run time, because the call had become indirect.
+4. Record a trace from the interpreter entry to the event, then search the trace for the constant the
+   branch depends on — the zero flag's mask, for example — and for the arithmetic that consumes it.
+   Filter the hits by the register values at that point, then break on the few that survive.
+5. Change the value **where the virtual state is written back**, not the instruction stream around it.
+   The reported failure mode for the crude approach is exact: NOP-ing the interpreter's code crashed the
+   process, because that code is the interpreter's own control flow.
+
+Two consequences worth stating as rules. **A virtualised branch is not removed by editing instructions;
+it is redirected by supplying a different value at the point the virtual flag word is materialised.**
+And **the value is re-read by later handlers**, so the change has to survive the rest of the virtual
+program: verify the feature, not the absence of a crash.
+
+**What does not transfer.** The registers named in those write-ups (a frame pointer for the virtual
+stack, an index register for the virtual registers, a dedicated register holding the next virtual
+address) are one version's allocation. Identify the role from data flow in *this* build: which register
+the allocation instruction leaves pointing at the carved block, which register the handler's final jump
+reads, which stack slot the bytecode base is built into. A 64-bit build will differ in all three.
+
 ## Handing off from reading to a trace or a solver
 
 | Evidence | Reduction step | Hand off when |
@@ -249,8 +299,10 @@ recovered, and nothing here recovers it.
 
 ## What this file does not contain
 
-- No claims about any particular protector's virtual machine. What is stated here is the shape such an
-  interpreter has, which follows from what an interpreter is.
+- No claim that any named protector has been defeated, and no claim that one version's layout holds for
+  another. The anatomy in "What a shipping protector looks like from outside" is the interpreter's shape
+  as public write-ups describe it, graded `unverified`; what is stated as mechanism is what an
+  interpreter must contain.
 - No opcode counts, handler counts, or instruction-set sizes. Every one of those is build-specific.
 - No thresholds in instructions or blocks for "too big to read by hand". The threshold is your working
   memory against the size of the function in front of you; what this file supplies is the handoff

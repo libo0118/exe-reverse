@@ -12,7 +12,7 @@ That is the shape worth fearing. A crash announces itself; these do not.
 
 Each entry states the failure, the mechanism that makes it invisible, and the check that catches it.
 
-P1-P25 are format and mechanism failures of Windows binaries; P26-P34 are failures of the *analysis*
+P1-P25 are format and mechanism failures of Windows binaries; P26-P37 are failures of the *analysis*
 itself — sampling read as observation, a self-built parser trusted, a verification that could not have
 failed. Those are written with Windows examples because that is where they were paid for, but the
 mechanism does not depend on the platform: read them on a managed assembly and a driver the same way.
@@ -348,3 +348,51 @@ succeeds against a different target. PowerShell adds its own layer (argument re-
 *Check:* when an argument-heavy command fails in a way that does not match its own parser, reproduce
 it with the argument written to a file or passed as an array, and print the argv the child actually
 received before changing the command.
+
+**P35. A decrypted buffer that parses, treated as the buffer the process used.**
+
+A buffer taken from memory is not a file that was read from disk. Loaders patch headers in place:
+the magic and the version field can read as zero after the loader has consumed them, and the length
+is not stored anywhere the file itself would carry it. A dump taken from the mapped view's size, the
+allocation's size, or a constant therefore has a correct-looking header and a truncated or padded
+tail, and the tool that consumes it reports a table read past its end, a count that disagrees with a
+neighbouring table, or a parse that succeeds with nonsense after the truncation point.
+
+*Check:* compute the length from the buffer's own structure — for a metadata-style header, the last
+`(offset, count)` pair with a non-zero count bounds it — and cross-check the result against one
+independent field (the largest `offset + count`, or a string table's declared end). Record the
+header fields before and after restoring the ones the loader cleared. A dump that parses is a dump
+that parsed; only the record of what it was taken from and what was restored makes it the buffer
+the process used.
+
+**P36. The version the file declares, believed over the structure that parses.**
+
+A container, a metadata file or a code-object stream carries a version field, and a tool that reads
+it selects a layout. After a custom build, a spliced layout or a hand-modified header, the field and
+the layout can disagree — a version-31 header over a version-29 struct, one extra 32-bit field
+shifting every following pointer by four bytes. The tool then reports a successful parse whose
+records point four bytes off, which surfaces as method bodies that belong to other methods, names
+attached to the wrong metadata, or a decompiler that produces something almost readable.
+
+*Check:* when a version-sensitive parse produces records that are *plausible but misaligned*, parse
+the same bytes under the neighbouring layout and compare which one yields pointers that land inside
+the section they claim and counts that match their tables. A version field is a claim by the file;
+the structure that produces consistent cross-references is the one that is executing, and the
+disagreement itself is the finding to record.
+
+**P37. The 32-bit view searched as though it were the only view.**
+
+A 32-bit target on a 64-bit host does not read the paths its own code names. WOW64 redirects
+`HKLM\SOFTWARE\Vendor` to `HKLM\SOFTWARE\Wow6432Node\Vendor` and `System32\` to `SysWOW64`, and both
+redirections are silent: every call succeeds, every path exists, and the default tools show the
+native view. A search of the native path therefore returns nothing, and the conclusion drawn from it
+— "the target keeps no local configuration, so the decision must be remote" — is wrong in a way that
+redirects the entire investigation to a layer that may not own the decision at all. A write that
+"succeeded" can likewise land in a per-user virtual store when the process is unmanifested and not
+elevated, so the setting is not in the key the code names either.
+
+*Check:* establish the process bitness from the process, not from the image header
+(`IsWow64Process2`), then search both the native key and its `Wow6432Node` twin, and both the
+`System32` and `SysWOW64` copies of the file. Record which view was searched next to the negative
+result. "Not found" is a statement about one view; only both views together make it a statement
+about the machine.

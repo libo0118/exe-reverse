@@ -96,6 +96,10 @@ that has been exercised.
 | Managed-assembly patching | no managed sample was obtained; the toolchain is documented and its limitations are quoted from their own documentation |
 | Kernel driver analysis | no driver was analysed; the tooling is not installed on the development host |
 | Any claim about a specific commercial protector | the mechanism and the vendor's own documented descriptions are cited; nothing was measured against a protected sample |
+| Unity IL2CPP metadata recovery and registration repair | no Unity build was analysed here; the placements, the dumper's failure modes and the string-literal layer are taken from public write-ups |
+| Unpacking a packaged Python program | no packaged sample was analysed here; the container behaviour is documented by the packagers' own tooling |
+| Recovering code objects from a versioned wrapper | no wrapped sample was obtained; the mechanism is quoted from one public analysis and is version-specific |
+| Instruction-level reading of a listing | no target was disassembled here; the conventions are documented architecture, and a producer claim (compiled here, assembled there) is `inferred` until a build whose toolchain is known confirms it |
 
 ## Where the corpus comes from
 

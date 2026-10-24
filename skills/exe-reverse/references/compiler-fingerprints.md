@@ -31,6 +31,11 @@ Three fingerprints survive most builds and are worth checking first.
 - The **debug directory** and its CodeView record carry a symbol-file name and a build-time GUID
   (`pe-structure.md`, "The debug directory and the PDB path").
 
+Two further fingerprints are read from instructions rather than from headers: whether the frame,
+the register use and the epilogue match a compiler at all, and whether floating-point work went
+through the x87 stack or through SSE. `references/assembly-idioms.md` carries the shapes and what each
+one changes about reading the routine; both are `inferred` until a second signal confirms the toolchain.
+
 ## MSVC
 
 **Observed.** This host's system images were built by Microsoft's toolchain: `notepad.exe` and

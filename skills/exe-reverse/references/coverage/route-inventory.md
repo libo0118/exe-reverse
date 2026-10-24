@@ -25,12 +25,27 @@ becomes `run` only when someone runs it and records the output.
 | PE structure reading | answering any header, section, directory, import, export, resource, TLS, relocation or checksum question | Python only — offline and dependency-free | `run` |
 | Triage | first contact with an unknown binary: identity, build evidence, protective signals, surface | Python only | `run` |
 | Toolchain fingerprinting | deciding which toolchain produced a binary, and what that implies for reading it | the binary; a disassembler only if the fingerprint is inconclusive | `run` for the header-level signals, `argued` for the toolchain-specific structure |
+| Instruction-level reading | reading a routine's convention, frame and idiom so that a patch or a detour preserves what the callee expects | a disassembler or decompiler — the repository ships none | `argued` |
 | Byte patching | making a change that fits an existing instruction or constant slot | Python only, plus a copy to write to | `run` |
 | Signature location | finding a site across builds rather than at one address | Python only; a second build for the comparison | `run` |
 | Build comparison | locating what changed between two builds | two builds | `run` |
 | Identity scanning | publishing derived material without publishing the target | Python only | `run` |
-| Managed assembly analysis | reading and changing a .NET assembly | managed tooling — the repository ships none | `mapped` |
+| Managed assembly analysis | reading and changing a .NET assembly | a decompiler or disassembler (`ilspycmd`, `ildasm`) to read it, `de4dot` for a renamed one, an assembler or dnSpyEx to change it — the repository ships none | `mapped` |
 | Installer and package extraction | getting at the payload of an installer without running it | extraction tooling; the container type decides which | `mapped` |
+
+## Application-runtime routes
+
+A packaged application adds a layer between the PE and the logic: an interpreter and its artifacts,
+a container, or a wrapper around the code. These routes are described from public write-ups and the
+tools' own documentation; none was run on an artifact in this repository.
+
+| Route | For | Requires | Taken |
+|---|---|---|---|
+| Unity IL2CPP metadata recovery | a readable metadata file when the shipped one is missing, empty, or decrypted only in memory | the build; a debugger or an instrumentation runtime for the memory route; a dumper for the code half | `argued` |
+| IL2CPP registration and version repair | a dumper that reports no registration, or parses a struct that disagrees with the metadata version | a dumper whose version handling can be overridden, and the exports or call sites that lead to the registration | `argued` |
+| Packaged Python extraction | the code objects inside a packaged executable | the packager's extractor, and an interpreter at the exact version the package bundles | `argued` |
+| Code-object wrapper removal | bytecode that is encrypted per object, with a runtime that decrypts it | the wrapper's key derivation for its version, or a run in which the plaintext can be dumped | `argued` |
+| VM-protector boundary tracing | redirecting one decision inside a virtualised region without devirtualising it | a debugger with tracing, and the point where the virtual flag word is materialised | `argued` |
 
 ## Dynamic routes
 

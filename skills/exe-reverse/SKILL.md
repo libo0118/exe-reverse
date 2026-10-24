@@ -1,6 +1,6 @@
 ---
 name: exe-reverse
-description: "Reverse engineer, patch, and analyse Windows x86/x64 local software. Use for an .exe/.dll/.sys/.msi sample, a licence check or feature gate that must be located, a binary that must be patched and still run, a target that fights analysis, or a request to decide whether a client-side change can work at all. Covers PE structure and triage, equal-length byte patching, AOB signature work, debugging and injection, dump and repair, licensing-mechanism classification, algorithm and key recovery, packers and code virtualisation, managed .NET assemblies, kernel drivers, and the hardware-observation routes (instruction tracing, hardware breakpoints, ETW) that software tooling cannot substitute for."
+description: "Reverse engineer, patch, and analyse Windows x86/x64 local software. Use for an .exe/.dll/.sys/.msi sample, a licence check or feature gate that must be located, a binary that must be patched and still run, a target that fights analysis, or a request to decide whether a client-side change can work at all. Covers PE structure and triage, equal-length byte patching, AOB signature work, debugging and injection, dump and repair, licensing-mechanism classification, algorithm and key recovery, packers and code virtualisation, managed .NET assemblies, Unity IL2CPP builds, packaged Python programs, kernel drivers, and the hardware-observation routes (instruction tracing, hardware breakpoints, ETW) that software tooling cannot substitute for."
 license: MIT — see LICENSE at the repository root
 compatibility: "Python 3.10+. Static PE analysis and byte patching are offline and dependency-free. Debugging needs a debugger installed; kernel, driver and instruction-trace routes need test signing, a second machine, or specific processor support. Run scripts/hwprobe.py first: it reports what this host can actually do rather than what is generally possible."
 metadata:
@@ -146,6 +146,12 @@ Load the named file **before your next command**, not after your next three atte
 | Your signature-based patch worked on one version and misses on the next | `references/aob-and-signatures.md` |
 | Two supposedly identical builds behave differently | `references/pe-diff-and-versions.md` |
 | The target is a .NET assembly and hex-patching it does nothing | `references/managed-dotnet.md` |
+| A .NET assembly decompiles, but the names are gone or the C# does not add up | `references/dotnet-decompilation.md` |
+| A Unity game's `global-metadata.dat` is missing, empty or unreadable beside its `GameAssembly.dll` | `references/unity-il2cpp.md` |
+| il2cppdumper reports `CodeRegistration : 0`, or the metadata version disagrees with the struct it parses | `references/unity-il2cpp.md` |
+| A hot-update assembly decompiles to high-entropy IL, or an AssetBundle refuses to open | `references/unity-il2cpp.md` |
+| The target directory holds `python3xx.dll`, `_internal` or `pyarmor_runtime` | `references/python-runtime-bundles.md` |
+| A Python module is high-entropy while the rest of the packaged program is ordinary | `references/python-runtime-bundles.md` |
 | The payload holds a large `data/app.so` and hardly any native code | `references/flutter-and-dart-aot.md` |
 | The sample is an installer, and the interesting binary is nowhere on disk after install | `references/installers-and-packaging.md` |
 | The file is a driver, or it refuses to load without a driver present | `references/kernel-and-drivers.md` |
@@ -156,6 +162,9 @@ Load the named file **before your next command**, not after your next three atte
 | A tool returns more output than you can read, or the same run returns different amounts | `references/toolchain.md` |
 | The binary was produced by a compiler you have not identified | `references/compiler-fingerprints.md` |
 | The target is written in Go, Rust or Delphi and the call structure looks wrong | `references/compiler-fingerprints.md` |
+| A detour or code cave crashes its callee, or the arguments arrive at wrong offsets | `references/assembly-idioms.md` |
+| A 32-bit target's licence file or registry key is absent from the path the documentation gives | `references/assembly-idioms.md` |
+| A prologue does not look like the compiler the headers named | `references/assembly-idioms.md` |
 | You are about to conclude "it must be server-side" | `references/network-activated-licensing.md` |
 | You cannot tell whether a failure is your patch or the target's own behaviour | `references/verification.md` |
 | You are about to write off a route as impossible | `references/protectors-and-packers.md` |
@@ -175,7 +184,7 @@ loudly — it produces an artifact that runs and does the wrong thing.
 |---|---|---|
 | 1 | **Is it packed or protected?** Sections near-zero entropy or flat-high, imports that resolve to almost nothing, an entry point that lands in a stub | Whether you can read the code at all yet, and whether patching is even the right instrument |
 | 2 | **Where does the behaviour live?** Client logic · server-issued data the client renders · a server-authoritative decision | Whether a local change can work, can appear to work, or cannot work. Decide this early — it is the most expensive wrong turn here |
-| 3 | **Native, managed, or a runtime bundle?** PE with a CLR directory, Go/Rust static binary, or packed runtime | The whole toolchain. Hex-patching a .NET assembly is a different activity from patching C++ |
+| 3 | **Native, managed, or a runtime bundle?** PE with a CLR directory, Unity IL2CPP, a packaged Python program, Go/Rust static binary, or packed runtime | The whole toolchain. Hex-patching a .NET assembly is a different activity from patching C++, and "the names are in another file" is a different activity from both |
 | 4 | **What must the deliverable do?** Write it as a testable sentence, then name its form | The most expensive drift. A live result presented as a finished artifact is the same failure as a wrong patch |
 | 5 | **Does it verify its own bytes, or its signature?** Checksums, section hashes, page guards, Authenticode, embedded digests | Whether patching the file is viable at all, or whether the answer is a memory patch or a report |
 | 6 | **What host do you actually have?** Debugger installed, elevation, a hypervisor present, test signing, a second machine | Which routes exist. Run the host probe rather than assuming |
@@ -199,10 +208,13 @@ is the most common way an hour disappears.
 |---|---|---|
 | A PE on disk, unknown | `scripts/pe_triage.py` — headers, sections, imports, entropy, fingerprints | `references/recon.md` |
 | A byte or a branch that must change | `scripts/pepatch.py` — equal-length, verified, dry-run first | `references/patching.md` |
+| Code a detour, stub or cave must run through | The convention and the frame first: shadow space, alignment, and the epilogue the trampoline must preserve | `references/assembly-idioms.md` |
 | The same patch across several versions | `scripts/aob_scan.py`, then its `--across` mode against the other build | `references/aob-and-signatures.md` |
 | Runtime behaviour to be located | A debugger, then hardware breakpoints if software ones are detected | `references/dynamic-debugging.md` |
 | Code that cannot be read at all | Protector identification, then the unpack route | `references/protectors-and-packers.md` |
 | A .NET assembly | Managed tooling; do not start with a hex editor | `references/managed-dotnet.md` |
+| Unity IL2CPP (`GameAssembly.dll` + metadata) | Classify the metadata placement before any patch; the names and the code are separate files | `references/unity-il2cpp.md` |
+| A packaged Python program | Identify the packager and the interpreter version first; both decide whether anything else is readable | `references/python-runtime-bundles.md` |
 | An installer or a packaged app | Extract first, then re-triage what came out | `references/installers-and-packaging.md` |
 | A licence decision to classify | The mechanism taxonomy, before any patching | `references/license-mechanisms.md` |
 | A driver or kernel component | Kernel route; user-mode tooling stops at the boundary | `references/kernel-and-drivers.md` |
