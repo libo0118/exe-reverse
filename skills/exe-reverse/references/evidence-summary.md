@@ -57,6 +57,7 @@ assume, and because a reader can compare their own `hwprobe.py` output against t
 |---|---|---|
 | OS | Windows 11, build 26100; the registry `ProductName` still reads "Windows 10" | read the build number, not the product name |
 | CPU | family 6, model 154; `CPUID.07H.0:EBX[25]` set | the trace feature is reported by the CPU |
+| CPU vendor | the vendor string `cpuid` returned was `GenuineIntel` | every measurement here is from one implementation; a result on this host is not a statement about the other vendor |
 | Hypervisor | `CPUID.01H:ECX[31]` set and the platform reports a hypervisor present | a debug exception may be intercepted; hardware routes must be probed, not assumed |
 | Debug registers | four (`DR0`–`DR3`) is the architectural count | an upper bound on simultaneous hardware breakpoints, independent of tooling |
 | Intel PT capability leaf | `CPUID.14H.0` returns max sub-leaf 1 and capability `EBX = 0x0000005F` | the leaf answers; the bits are printed raw because their meanings belong to the processor specification for this family, not to this repository |
@@ -100,6 +101,7 @@ that has been exercised.
 | Unpacking a packaged Python program | no packaged sample was analysed here; the container behaviour is documented by the packagers' own tooling |
 | Recovering code objects from a versioned wrapper | no wrapped sample was obtained; the mechanism is quoted from one public analysis and is version-specific |
 | Instruction-level reading of a listing | no target was disassembled here; the conventions are documented architecture, and a producer claim (compiled here, assembled there) is `inferred` until a build whose toolchain is known confirms it |
+| CPU-vendor divergence | no AMD host was available; the divergences are stated from both vendors' specifications and one public CVE analysis, and nothing was measured across vendors |
 
 ## Where the corpus comes from
 

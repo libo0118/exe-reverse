@@ -12,7 +12,7 @@ That is the shape worth fearing. A crash announces itself; these do not.
 
 Each entry states the failure, the mechanism that makes it invisible, and the check that catches it.
 
-P1-P25 are format and mechanism failures of Windows binaries; P26-P37 are failures of the *analysis*
+P1-P25 are format and mechanism failures of Windows binaries; P26-P38 are failures of the *analysis*
 itself — sampling read as observation, a self-built parser trusted, a verification that could not have
 failed. Those are written with Windows examples because that is where they were paid for, but the
 mechanism does not depend on the platform: read them on a managed assembly and a driver the same way.
@@ -396,3 +396,18 @@ elevated, so the setting is not in the key the code names either.
 `System32` and `SysWOW64` copies of the file. Record which view was searched next to the negative
 result. "Not found" is a statement about one view; only both views together make it a statement
 about the machine.
+
+**P38. An undefined result recorded as a defined one, on the machine that happened to be under the desk.**
+
+A value the instruction manual calls undefined — the destination of a zero-input `bsf`, the overflow
+flag after a variable shift, the flags after a multiply — is whatever the part in front of you left
+there. Measure it on one machine and it looks like a rule; write the rule into a specification or a
+patch and it becomes a requirement the other vendor's part does not meet. The same shape covers a
+vendor-string dispatch and a spin loop tuned to one part's `pause`: the code worked, on the machine
+that produced the note, and nothing in the note says which machine that was.
+
+*Check:* every timing, flag and fault result is recorded with the vendor string and the
+family/model/stepping — `scripts/hwprobe.py` prints all three. A sentence that states a value where
+the manual says undefined is rewritten as undefined before the artifact or the specification leaves
+the analysis. When the same OS build behaves differently on two hosts, compare the two CPUs before
+the two builds.

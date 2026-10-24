@@ -258,6 +258,9 @@ done here:
 - **The deliverable for most requests that land in this file is a written conclusion**: which
   layer can answer the question on this host, what it costs, and what is unavailable. That is
   the honest output, and it is more useful than an instrument that was never going to load.
+- **The mechanisms here are one vendor's.** The control structure, the entry instructions and the
+  second-level translation named above are Intel's; the other vendor's equivalents, and why a tool
+  built for one set does not drive the other, are in `references/cpu-vendor-divergence.md`.
 
 ## Verification for this shape
 

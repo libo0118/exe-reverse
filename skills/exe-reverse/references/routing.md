@@ -35,6 +35,7 @@ without a check.
 | The file checksum no longer matches and something now refuses the binary | `references/patching.md` |
 | Your signature-based patch worked on one version and misses on the next | `references/aob-and-signatures.md` |
 | Two supposedly identical builds behave differently | `references/pe-diff-and-versions.md` |
+| A check passes here and fails on the machine the deliverable is for, with the same OS build | `references/cpu-vendor-divergence.md` |
 | The target is a .NET assembly and hex-patching it does nothing | `references/managed-dotnet.md` |
 | A .NET assembly decompiles, but the names are gone or the C# does not add up | `references/dotnet-decompilation.md` |
 | A Unity game's `global-metadata.dat` is missing, empty or unreadable beside its `GameAssembly.dll` | `references/unity-il2cpp.md` |
@@ -55,6 +56,7 @@ without a check.
 | A detour or code cave crashes its callee, or the arguments arrive at wrong offsets | `references/assembly-idioms.md` |
 | A 32-bit target's licence file or registry key is absent from the path the documentation gives | `references/assembly-idioms.md` |
 | A prologue does not look like the compiler the headers named | `references/assembly-idioms.md` |
+| A routine compares the CPUID vendor string, or branches on a flag the manual calls undefined | `references/cpu-vendor-divergence.md` |
 | You are about to conclude "it must be server-side" | `references/network-activated-licensing.md` |
 | You cannot tell whether a failure is your patch or the target's own behaviour | `references/verification.md` |
 | You are about to write off a route as impossible | `references/protectors-and-packers.md` |
@@ -77,6 +79,7 @@ reference that is loaded at the wrong moment costs context and answers nothing.
 | `references/static-analysis.md` | reading code: disassembly, decompilation, structure recovery, and where a listing lies |
 | `references/compiler-fingerprints.md` | the toolchain is unidentified, or the call structure does not look like C or C++ |
 | `references/assembly-idioms.md` | a listing must be read at the instruction level: the convention moves the arguments, the prologue says who produced the code, a string instruction stands in for a library routine, or a detour must preserve the frame |
+| `references/cpu-vendor-divergence.md` | a result may belong to one processor's implementation rather than to x86-64: undefined flags, vendor-string dispatch, feature-gated decoding, system-instruction fault timing, or a specification about to be handed to another team |
 | `references/pe-diff-and-versions.md` | two builds must be compared, or a finding has to survive a version change |
 | `references/patching.md` | any byte edit: site choice, equal-length discipline, checksum, and proving the patch is reached |
 | `references/aob-and-signatures.md` | a patch must be located across versions rather than at one address |

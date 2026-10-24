@@ -145,6 +145,7 @@ Load the named file **before your next command**, not after your next three atte
 | The file checksum no longer matches and something now refuses the binary | `references/patching.md` |
 | Your signature-based patch worked on one version and misses on the next | `references/aob-and-signatures.md` |
 | Two supposedly identical builds behave differently | `references/pe-diff-and-versions.md` |
+| A check passes here and fails on the machine the deliverable is for, with the same OS build | `references/cpu-vendor-divergence.md` |
 | The target is a .NET assembly and hex-patching it does nothing | `references/managed-dotnet.md` |
 | A .NET assembly decompiles, but the names are gone or the C# does not add up | `references/dotnet-decompilation.md` |
 | A Unity game's `global-metadata.dat` is missing, empty or unreadable beside its `GameAssembly.dll` | `references/unity-il2cpp.md` |
@@ -165,6 +166,7 @@ Load the named file **before your next command**, not after your next three atte
 | A detour or code cave crashes its callee, or the arguments arrive at wrong offsets | `references/assembly-idioms.md` |
 | A 32-bit target's licence file or registry key is absent from the path the documentation gives | `references/assembly-idioms.md` |
 | A prologue does not look like the compiler the headers named | `references/assembly-idioms.md` |
+| A routine compares the CPUID vendor string, or branches on a flag the manual calls undefined | `references/cpu-vendor-divergence.md` |
 | You are about to conclude "it must be server-side" | `references/network-activated-licensing.md` |
 | You cannot tell whether a failure is your patch or the target's own behaviour | `references/verification.md` |
 | You are about to write off a route as impossible | `references/protectors-and-packers.md` |
@@ -220,6 +222,7 @@ is the most common way an hour disappears.
 | A driver or kernel component | Kernel route; user-mode tooling stops at the boundary | `references/kernel-and-drivers.md` |
 | Something that detects every hook you install | Hardware observation, and only if the probe says this host supports it | `references/hardware-tracing.md` |
 | A virtualised or flattened routine | Symbolic/emulation route before more manual reading | `references/symbolic-execution.md` |
+| Code that dispatches on CPU vendor or feature level | Pin the decoder's target CPU and read both paths; a vendor compare is not a feature test | `references/cpu-vendor-divergence.md` |
 | Behaviour that is mostly network | Capture and classify authority | `references/network-activated-licensing.md` |
 
 **If the target does not match any row, stop and classify before choosing a branch.** A method that

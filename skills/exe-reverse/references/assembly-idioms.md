@@ -231,6 +231,9 @@ What this changes during analysis:
   confirmed by observation, not by reading (`references/dynamic-debugging.md`).
 - **No disassembler is shipped here.** The reading is done with whatever the host provides, and
   `scripts/hwprobe.py` reports whether that is anything at all.
+- **An idiom is not a guarantee.** The same bytes can mean two instructions and the same instruction
+  can leave an undefined result, so a behaviour that differs between processor implementations is not
+  an idiom — it is `references/cpu-vendor-divergence.md`.
 - **A reconstructed frame is a hypothesis.** The listing gives the shape a compiler intended; the
   unwinder gives the one the processor used. Where they disagree, the run is authoritative.
 - **Conventions describe calls the compiler emitted.** A stub written by hand, a callback invoked by
