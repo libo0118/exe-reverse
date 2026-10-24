@@ -50,6 +50,11 @@ SCRIPT_FILES = (
     "dart_snapshot_strings.py",
     "fold.py",
     "trace_reduce.py",
+    # The two route helpers: the first script a task should run on an unknown image, and the
+    # two-build comparison. Added with tests/cli/test_cli_coverage.py, which fails if a shipped
+    # script is neither in this tuple nor declared uncovered with a reason.
+    "pe_triage.py",
+    "pe_diff.py",
 )
 
 # A hang detector, not a performance assertion. Nothing in this suite is meant to be slow.

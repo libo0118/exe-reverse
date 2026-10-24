@@ -154,9 +154,85 @@ on this host rather than an error.
 *Fix and check:* long values wrap onto continuation lines instead of being cut. A test asserts a long
 value survives into the output intact.
 
+## Gate, harness and lint defects
+
+**F11. The hard index-row limit was computed and then unable to fail anything.**
+
+*Symptom:* none. The gate reported `ok` on an index row of 450 characters, past the 400-character
+limit it declares, and CI stayed green.
+
+*Root cause:* the finding was appended as `('warn' if hard else 'warn', ...)` -- both branches the
+same expression. `INDEX_ROW_HARD` was defined, the comparison was performed, and the level was then
+thrown away. The message text even said "that is a paragraph, not an index entry", which is what made
+it read as enforcement.
+
+*How it surfaced:* by injecting an over-long row into a scratch copy and requiring the gate to exit
+non-zero. It exited 0. A gate that has only ever been seen passing is not evidence that it can see
+anything, and this class of defect is invisible to every test that runs the gate on a conforming tree.
+
+*Fix and check:* the escalated level is `fail`. `tests/unit/test_budget_measurement.py` asserts that a
+row past `INDEX_ROW_HARD` produces `fail` and a row past `INDEX_ROW_SOFT` produces `warn`, so the two
+thresholds cannot silently collapse into each other again.
+
+**F12. The corpus measurement counted a bytecode cache, so its own number changed when a reader ran
+the suite.**
+
+*Symptom:* the budget gate reported `36 references + 27 scripts = 63 files` on a tree that ships 16
+scripts. The count moved between runs on the same commit.
+
+*Root cause:* the script half of the corpus was `glob(scripts/**/*)` filtered by `isfile`, which
+includes `scripts/__pycache__/*.pyc`. Reading a directory is a measurement of the repository; reading
+a directory that the reader has been scribbling in is a measurement of the reader.
+
+*How it surfaced:* comparing the number the gate printed against the number of files the routing gate
+said it covers. Two gates measuring the same tree disagreed, and that disagreement was the finding.
+
+*Fix and check:* paths under `__pycache__` are excluded from the corpus. The count now matches the
+routing inventory, and re-running the suite no longer changes it.
+
+**F13. A test asserted a capability it never checked, so a host without it failed instead of skipping.**
+
+*Symptom:* `test_prober_can_dump_raw_cpuid_registers` failed on a non-x64 host with "a raw dump was
+requested but nothing was reported", while the probe's own report said CPUID was unavailable there.
+
+*Root cause:* the test asserted that the dump was non-empty without asking whether the host could
+produce one. The script was right and the test encoded a Windows assumption. It also contradicted the
+suite's own rule that a missing prerequisite is a skip with a printed reason.
+
+*Fix and check:* the test reads the probe's `cpu` row first and skips with that row's note when the
+state is not `available`; the non-empty assertion still runs where CPUID is reachable. The skip text
+names the reason, so a green run on Linux is not mistaken for a green run on Windows.
+
+**F14. A configuration comment pointed at a document that does not exist.**
+
+*Symptom:* `pytest.ini` sent a reader to `docs/tool-verification/EXTENSION-test-harness.md` for the
+suite's coverage policy. No such file has ever been in this repository.
+
+*Root cause:* the file was inherited from the Android-side repository along with the harness, and the
+structural gates check the *skill* tree's references, not a comment in an ini file. A stale path in a
+comment fails nothing, which is exactly why it survives.
+
+*Fix and check:* the comment points at `tests/README.md`, which carries a "what it deliberately does
+not do" section. Recorded here rather than silently repaired because the class -- a reference in a
+non-markdown file that no gate walks -- is still open.
+
+**F15. The type checker rejected a sentinel assignment the moment its optional dependency was installed.**
+
+*Symptom:* `mypy *.py skills/exe-reverse/scripts/*.py` reported `check_repo.py:34: Incompatible types
+in assignment (expression has type "None", variable has type Module)` on a machine with PyYAML, and
+no error at all on a machine without it.
+
+*Root cause:* `yaml = None` in the `except ImportError` branch is ill-typed only where the import
+succeeded, which is the environment the lint job runs in. The repository had no lint job at the time,
+so the two environments never had to agree.
+
+*Fix and check:* the assignment carries `# type: ignore[assignment]`, with `warn_unused_ignores` off
+(already the configuration) so the bare-machine environment stays clean too. `mypy.ini` and `.flake8`
+are now enforced by the `lint` job in CI.
+
 ## What this list is for
 
-Ten defects, all in code written during this pass, all of which produced output that looked right. The
+Fifteen defects, all in code written or inherited during this pass, all of which produced output that looked right. The
 pattern is consistent enough to state as a rule:
 
 **A check that cannot fail is not a check, and a table written from recall is a table that is wrong in

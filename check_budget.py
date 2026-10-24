@@ -78,9 +78,10 @@ NAV_LINES = 100               # above this, a reference must open navigably
 CORPUS_FILES_NOTE = 110       # references + scripts, reported as a note past this
 CORPUS_LINES_NOTE = 26000     # total lines across the same corpus, same treatment
 # Characters per token, for the no-tiktoken fallback. **Calibrated on SKILL.md against
-# tiktoken/cl100k_base** (47,629 chars -> 11,114 tokens = 4.285), so both measurement paths reach
-# the same verdict. Getting this wrong made the gate answer differently on CI than locally.
-TOKENS_PER_CHAR = 4.285
+# tiktoken/cl100k_base** (26,795 chars -> 6,065 tokens = 4.418, re-measured 2026-10-24), so both
+# measurement paths reach the same verdict. Getting this wrong made the gate answer differently on
+# CI than locally.
+TOKENS_PER_CHAR = 4.418
 # A navigable head: one of these must appear in the first NAV_HEAD_LINES lines.
 NAV_HEAD_LINES = 40
 HEDGE_RE = re.compile(
@@ -145,9 +146,10 @@ def token_estimate(text):
     everywhere in this repository, including in this file. When it is not, it falls back to
     `characters / TOKENS_PER_CHAR`.
 
-    The fallback constant is **calibrated against that measurement** rather than guessed: a
-    markdown-heavy document tokenizes worse per character than the usual /4 rule of thumb, and this
-    file measured 0.30 characters-to-tokens on SKILL.md (67,011 chars -> 19,929 tokens).
+    The fallback constant is **calibrated against that measurement** rather than guessed: this
+    SKILL.md measures 4.418 characters per token (26,795 chars -> 6,065 tokens, cl100k_base). Agreeing
+    with the "about four" rule of thumb to within a few percent is not close enough to rely on, so
+    the number is re-derived when the document changes rather than assumed.
 
     Why the value matters more than the method: the first version used 3.6 and the gate therefore
     reached *different verdicts on different machines* -- `WARN over budget` where tiktoken was
@@ -198,7 +200,11 @@ def check_index_rows(lines):
     out = []
     for section, key, size in long_rows:
         hard = size > INDEX_ROW_HARD
-        out.append(('warn' if hard else 'warn',
+        # `hard` must actually escalate. This read `'warn' if hard else 'warn'` -- both branches the
+        # same -- so INDEX_ROW_HARD was defined, computed and never able to fail anything: an index
+        # row could grow without limit and CI stayed green. Found by injecting an over-long row and
+        # asking the gate to fail, which is the only way this class of defect shows up.
+        out.append(('fail' if hard else 'warn',
                     '%s: row for %s is %d chars (soft limit %d)%s' %
                     (section, key, size, INDEX_ROW_SOFT,
                      ' -- that is a paragraph, not an index entry' if hard else '')))
@@ -305,8 +311,11 @@ def check_corpus():
     green always-loaded count.
     """
     refs = sorted(glob.glob(os.path.join(REFS, '**', '*.md'), recursive=True))
+    # A bytecode cache is not corpus. It is untracked, it appears the first time the suite runs, and
+    # counting it made this note report 27 scripts where the directory ships 16 -- a measurement that
+    # changes when a *reader* runs a test is not a measurement of the repository.
     scripts = sorted(p for p in glob.glob(os.path.join(SKILL_DIR, 'scripts', '**', '*'), recursive=True)
-                     if os.path.isfile(p))
+                     if os.path.isfile(p) and '__pycache__' not in p.split(os.sep))
 
     def count(paths):
         total = 0

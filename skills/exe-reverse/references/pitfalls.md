@@ -12,6 +12,11 @@ That is the shape worth fearing. A crash announces itself; these do not.
 
 Each entry states the failure, the mechanism that makes it invisible, and the check that catches it.
 
+P1-P25 are format and mechanism failures of Windows binaries; P26-P34 are failures of the *analysis*
+itself — sampling read as observation, a self-built parser trusted, a verification that could not have
+failed. Those are written with Windows examples because that is where they were paid for, but the
+mechanism does not depend on the platform: read them on a managed assembly and a driver the same way.
+
 ---
 
 **P1. A length change, made by someone who thought of it as "just adding a byte".**
@@ -242,3 +247,104 @@ once, it cannot be withdrawn from a history.
 
 *Check:* scan before committing, and be as careful about over-redacting as about under-redacting:
 removing tool names and format names destroys the reusable part and removes none of the identity.
+
+**P26. The error disappeared and the symptom did not.**
+
+The log line is gone, the dialog that used to appear is gone, and the report says fixed. The
+requester then shows the same problem still on screen. The internal signal and the user-visible
+outcome are different claims: suppressing one error path proves that path ran, not that the symptom
+had only one producer.
+
+*Check:* define the result as the observable the requester described, reproduce it before the change
+so the "after" has something to compare against, and treat a quiet log as absence of evidence rather
+than evidence of success.
+
+**P27. "I did not observe it" treated as "it is not there".**
+
+A breakpoint that never fires, an ETW provider that logs nothing, a screenshot loop that never
+catches the dialog. Sampling is not observation: a transient state can fall entirely between samples,
+a provider can be filtering the very event you want, and a breakpoint on a page that is already warm
+misses the access. The captures are real and consistently empty, which reads as corroboration when it
+is one blind spot repeated.
+
+*Check:* name what the instrument can and cannot see before drawing a negative conclusion, and ask the
+same question with an instrument of a different kind -- a hardware breakpoint instead of a software
+one, a file-level search instead of a runtime one, a second provider.
+
+**P28. Waiting for something only a person can advance.**
+
+An automation loop polls for a state that will never arrive on its own: an installer's UAC prompt, a
+licence dialog waiting for input, a captcha, a "click to continue" in a trial build. Polling looks
+productive -- timestamps advance, the screen is unchanged -- and can run for a long time without the
+possibility of progress.
+
+*Check:* before waiting, say what would cause the state to change. If the answer is "a person", drive
+the prompt programmatically or hand it back. Bound every wait by change, not by elapsed time.
+
+**P29. "The search returned nothing" treated as "the bytes are not there".**
+
+A scan for a known-present string returns zero hits and the route is written off. Usually the needle
+was encoded differently from the haystack: UTF-16LE inside a resource or a wide-char table, a string
+split across fragments, a compressed resource section, or text that exists only after decryption at
+run time.
+
+*Check:* search more than one encoding before concluding absence (`utf-8` and `utf-16-le` cover most
+storage), search the shortest distinctive fragment, look inside containers before declaring the data
+missing, and state the negative result with its scope -- "no UTF-8 or UTF-16LE literal in this file"
+is a finding; "the string does not exist" is a guess.
+
+**P30. Your own analysis script's defect, recorded as a target finding.**
+
+A purpose-written parser prints a plausible table, count or verdict, and it is wrong. It ran clean and
+fast, so it was trusted. Common shapes: an operator-precedence mistake that silently widens a mask, a
+local helper whose name shadows a stdlib module inside a third-party package, a "precision" number
+computed against an incomplete reference, an offset table built with the wrong RVA-to-file mapping.
+
+*Check:* sanity-check the shape before the content -- a distribution that is implausible for the
+format is a bug signal. Cross-check against an independently produced artifact, and exercise any
+fallback path against a case whose answer you already know.
+
+**P31. A verification that could not have failed.**
+
+A check "passes" while having tested nothing, because the observable is identical whether or not the
+change took effect. The patch removes a dialog that also does not appear in the state you tested in,
+or the field you edited is not the field the UI reads.
+
+*Check:* ask, before running it, **what would this look like if the change were absent?** If the
+answer is the same, the measurement is void: record it as *not applicable under this condition*, never
+as *passed*.
+
+**P32. One observer's failure silently disarming the others.**
+
+Several instruments are installed -- hooks in different modules, a debugger plus a logger, two ETW
+sessions -- and one of them faults. On Windows the failure is often swallowed: a vectored exception
+handler consumes the fault, a hook chain returns early, a thread dies while the process keeps running.
+Everything installed after the failure stops reporting, and the absence is read as "nothing happened
+there".
+
+*Check:* after installing N observers, prove each one still fires on a known event. Install them one
+at a time when the first fault is unexplained, and treat a sudden drop to zero events as a broken
+instrument until proven otherwise.
+
+**P33. Two tools disagree about the same artifact, and the disagreement is your parser.**
+
+A disassembler, a PE viewer and a debugger report different entry points, different imports or
+different section sizes. The reflex is to distrust the target. In practice the usual cause is a
+difference in what each tool means: RVA versus file offset, virtual versus raw size, the section that
+*contains* an address versus the section that *starts* at it, or a cached parse of an older copy of
+the file.
+
+*Check:* convert both readings into the same coordinate system (RVA, file offset, module base) before
+comparing, and verify one value by hand from the headers. A disagreement you cannot restate in one
+coordinate system is not yet a finding.
+
+**P34. The shell mangled the command before the target ever saw it.**
+
+A path with spaces, a quote inside an argument, a `--flag=value` that a wrapper re-splits: the tool
+receives something other than what was typed and reports a usage error, a missing file, or -- worse --
+succeeds against a different target. PowerShell adds its own layer (argument re-quoting, `--%`, and
+`Start-Process -ArgumentList` joining a string differently from an array), and `cmd /c` adds another.
+
+*Check:* when an argument-heavy command fails in a way that does not match its own parser, reproduce
+it with the argument written to a file or passed as an array, and print the argv the child actually
+received before changing the command.

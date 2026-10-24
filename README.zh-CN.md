@@ -126,6 +126,11 @@ export EXEREV_TOOLS=<dir>:<dir>                  # POSIX
 
 一致性有天然的反向压力 —— 坏路径会大声失败，然后有人修。膨胀没有，这就是预算门存在的原因。
 
+这六道门只是"全绿"的一半，另一半是 `python -m pytest -q` 与 lint 组合（`mypy` 与 `flake8`
+跑在同一批文件上，分别由 `mypy.ini` 和 `.flake8` 配置）。`.github/workflows/ci.yml` 在每次
+push 时跑完整套：六道门、Python 3.11–3.14 的测试矩阵、以及 lint 任务，并在文件开头写明它刻意
+不跑什么。缺少可选依赖的机器，正是 lint 配置与预算门回退路径都必须能正常工作的环境。
+
 `tests/benchmark.md` 保存回归矩阵（维度 -> 公开目标 -> 该行用到的脚本 -> 实测结果 -> 强度标签），
 `docs/tool-verification/` 是它背后的证据记录：每个脚本实际做了什么、哪个独立方法确认了它、以及目标
 无法演练哪些场景。

@@ -162,6 +162,13 @@ Six tools live at the root and are not part of the installed skill. Each carries
 Consistency has a natural counter-pressure — a broken path fails loudly and someone fixes it. Bloat
 has none, which is why the budget gate exists.
 
+Those six gates are half of a green run. The other half is `python -m pytest -q` plus the lint pair
+(`mypy` and `flake8` over the same surface, configured by `mypy.ini` and `.flake8`).
+`.github/workflows/ci.yml` runs all of it on every push — the six gates, the suite on Python
+3.11–3.14, and the lint job — and states at the top what it deliberately does not run. A machine
+without the optional dependencies is the environment both the lint configuration and the budget
+gate's fallback path are required to keep working in.
+
 `tests/benchmark.md` holds the regression matrix (dimension -> public target -> scripts exercised ->
 measured result -> strength label), and `docs/tool-verification/` is the evidence record behind it:
 what each script actually did, which independent method confirmed it, and what the target could not

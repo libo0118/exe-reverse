@@ -52,6 +52,8 @@ without a check.
 | You are about to publish notes, a script or a screenshot of the work | `references/desensitization.md` |
 | The task has run long and you are unsure what is already proven | `references/long-task-discipline.md` |
 | A documented command does not run, or a tool "is missing" | `scripts/hwprobe.py` |
+| A fix removed the error, and the requester still sees the symptom | `references/pitfalls.md` |
+| A verification passed, but you cannot say what would have failed without the change | `references/pitfalls.md` |
 | You need to know what this skill does not cover before promising anything | `references/coverage-and-limits.md` |
 
 ## Reference index

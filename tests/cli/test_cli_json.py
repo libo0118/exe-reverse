@@ -390,8 +390,48 @@ def test_prober_rows_carry_a_measurement_and_a_note(hwprobe_report):
             assert row["state"] in ROUTE_STATES or row["state"].startswith("needs-"), row
 
 
-def test_prober_can_dump_raw_cpuid_registers(run_script):
+def test_prober_can_dump_raw_cpuid_registers(run_script, hwprobe_report):
+    """A requested CPUID dump must be non-empty -- where CPUID is reachable at all.
+
+    The probe's own report says which of those two situations this host is in, so the test reads it
+    instead of assuming x64 Windows: on a non-x64 or non-Windows host the stub cannot run, and
+    "nothing was reported" is the correct answer rather than a defect. A missing capability is a
+    skip with the probe's own note, never a red test (tests/README.md, conftest.py).
+    """
+    cpu = hwprobe_report["cpu"][0]
+    if cpu["state"] != "available":
+        pytest.skip("CPUID is not reachable on this host, so there is no register dump to check: %s"
+                    % cpu["note"])
     result = run_script("hwprobe.py", "--raw", "--json", timeout=120)
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
     assert payload["raw_cpuid"], "a raw dump was requested but nothing was reported"
+
+
+# --- pe_triage ---------------------------------------------------------------
+
+def test_triage_reports_identity_and_leaves_the_sample_untouched(fixtures, run_script):
+    """The first script a task should run: it parses, classifies, and must not write."""
+    sample = fixtures.pe64
+    before = sample.data
+    result = run_script("pe_triage.py", sample.path, "--json")
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["sha256"] == sample.sha256
+    assert payload["identity"]["arch"] == "amd64"
+    assert payload["identity"]["bitness"] == 64
+    assert payload["identity"]["kind"] == "exe"
+    assert sample.data == before, "triage modified the image it was reading"
+
+
+# --- pe_diff -----------------------------------------------------------------
+
+def test_diff_of_the_same_build_reports_no_material_change(fixtures, run_script):
+    """Self-comparison is the control for every other diff: it must find nothing."""
+    sample = fixtures.pe64
+    result = run_script("pe_diff.py", sample.path, sample.path, "--json")
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["verdict"] == "identical-modulo-normalised-fields"
+    assert payload["material_change"] is False
+    assert payload["byte_diff"]["differ_bytes"] == 0
