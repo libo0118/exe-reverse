@@ -54,7 +54,8 @@ and the versioned C++ runtime (both present on this host as `vcruntime140.dll` a
 `observed` by path existence) indicates a C/C++ build whose exceptions and STL use the matching
 runtime. Symbol names in `.pdb`-style C++ mangling, RTTI records, and a `.pdata` array covering every
 non-leaf function give you function extents for free — read the exception directory before
-disassembling, because it bounds functions the disassembler will otherwise join.
+disassembling (`references/static-analysis.md` reads it as a function table), because it bounds
+functions the disassembler will otherwise join.
 
 **The timestamp caution.** A `/Brepro`-style deterministic build writes a hash into date/time fields, and
 the file declares that with a debug entry of type 16. The specification's wording is explicit that such

@@ -118,6 +118,50 @@ whole instructions. Concretely:
    be suspended while you write (`inferred`; the failure it produces is a crash inside the target that
    disappears under a debugger).
 
+## Building the stub: where it lives, how it reaches, and what it clobbers
+
+The trampoline above is the reading problem. This is the authoring problem, and it has four
+independent decisions: where the bytes live, which jump encoding can reach them, what the stub must
+preserve, and in what order the writes land.
+
+**Placement.**
+
+| Where | Reached by | Cost |
+|---|---|---|
+| a run of padding inside an executable section — a "cave" | a relative jump, if the distance is in range | no structural change; the cave may sit in a page the target hashes |
+| a new section | a relative jump, because the RVA is chosen with it | structural: section table, alignment and size fields all change, and the file grows (`references/patching.md`) |
+| memory allocated in the target | the jump is written into the target's code and points at the allocation | memory patch only; the allocation must be made executable, and a private executable region is visible to a memory scan |
+| an existing routine that is close enough | a routine-pointer or call-site edit | no stub at all — the smallest edit, when such a routine exists |
+
+**Reach.** The jump has to encode the distance, and on x64 the distance is the problem: a relative
+displacement is 32-bit, so it covers ±2 GB, while an image and a separately allocated region are
+commonly farther apart than that (`inferred` from the encoding width).
+
+| Encoding | Bytes | Range | Notes |
+|---|---|---|---|
+| `EB rel8` | 2 | ±127 | cheapest and the most fragile; a rebuild moves the target |
+| `E9 rel32` | 5 | ±2 GB | the default hook; needs five bytes of whole instructions at the site |
+| `FF 25 00000000` + an 8-byte address | 14 | the full 64-bit space | reads the address out of the instruction stream; needs 14 bytes at the site, which a function head rarely has |
+| `mov rax, imm64; jmp rax` | 12 | the full 64-bit space | clobbers RAX, which the callee may be about to use |
+| a relay: the 14-byte form parked in a cave, reached by `E9 rel32` | 5 at the site | ±2 GB to the cave | the usual answer when the stub is far away and the head is short |
+
+**What the stub must preserve.** The non-volatile registers it touches, and the flags if it branches
+before restoring them (`pushfq`/`popfq`). A stub that calls anything needs the x64 frame — shadow
+space and 16-byte alignment — described in `references/assembly-idioms.md`. Position independence is
+not optional: the image base moves between runs, so the stub resolves what it needs at run time,
+either from data placed beside it or through the export tables.
+
+**Order of writes.** The stub body goes in first and the hook bytes last, so the site never points at
+a half-written routine. A five-byte write is not atomic against a thread executing there: suspend the
+other threads, or make the site's page non-executable for the duration. Where the site is 8-byte
+aligned, one aligned 64-bit store installs the five-byte jump plus three filler bytes as a single
+atomic write, which is why that alignment is worth checking before the site is chosen.
+
+**Producing the bytes.** Assemble the stub to an object, take the `.text` raw bytes, and disassemble
+those bytes back before using them: an assembler that emitted a relocation, or a section extracted at
+the wrong file offset, still produces something that assembles. Then give the hex to the patcher's
+`--bytes` on the file route, or write it into the allocation on the memory route.
+
 ## Managed methods are a different target
 
 A managed method's code may not exist yet when you want to hook it: it is produced at run time, can be

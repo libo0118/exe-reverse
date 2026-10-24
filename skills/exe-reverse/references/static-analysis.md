@@ -78,6 +78,37 @@ Consequences for your search:
 - Record which search you ran and over what. A negative result is `unknown` with a named search, never
   "the program does not contain it".
 
+## The exception directory is a function table (x64)
+
+Every x64 function the toolchain gave unwind data to has a **runtime function entry** in `.pdata`, and
+data directory 3 (the exception directory) points at the array. Each entry is three 32-bit RVAs — begin
+address, end address, unwind-info address — and the array is sorted by begin address (`inferred` from
+the x64 unwind convention; `observed` that the shipped reader reports the directory and its size).
+
+That makes it the only **exhaustive** function table in a stripped image, and it is worth reading before
+any disassembly:
+
+- It gives real boundaries, so the tail-call merge and the shared epilogue described above stop being
+  guesses.
+- It bounds a function the disassembler would otherwise run past, because the end address is recorded.
+- It gives the frame without executing it: the unwind record carries the prologue size, the frame
+  register — zero when the frame pointer was omitted — and one code per non-volatile register that was
+  saved, with where.
+
+Read it before disassembling. `python scripts/peutil.py APP.exe --summary` reports whether directory 3
+is populated and how large it is, and `--json` gives the section table so the RVAs can be mapped to
+file offsets. Three checks say whether what you parsed is really a table: begin below end, end inside an
+executable section, and entries in ascending order. A record that fails one of them means a different
+record layout or a packed image, not a table to be repaired.
+
+Three limits. **Leaf functions may have no entry**, because there is nothing to unwind; a call target
+outside every range is therefore a leaf, a hand-written routine assembled without unwind data, or a
+splice, and which one it is needs a second observation. **x86 has no such table** — the directory is
+normally empty and the exception mechanism is stack-linked instead, so on 32-bit the boundaries come
+from exports, symbols, call sites and the frame shapes in `references/assembly-idioms.md`. And **the
+record layout is architecture-specific**: an ARM64 image populates the same directory with a packed
+encoding, so parse the 12-byte x64 record only when the machine field says `0x8664`.
+
 ## Call graph and caller counting
 
 The call graph is the cheapest structure in the file, and it is the one that prevents the single most

@@ -143,6 +143,38 @@ The import list is the cheapest structural evidence in the file, and the most mi
   usually a library the request cares about; a stripped export table on a `DLL` subsystem image is
   itself a finding.
 
+### The import list names the mechanism, read in clusters
+
+One API proves nothing; three that only make sense together are the mechanism. `GetTickCount` is in
+every program, and `GetTickCount` read twice around `Sleep` and compared to a constant is a timing
+check. Name the cluster, then find one call site before believing it — mechanism without a site is a
+hypothesis (`inferred`).
+
+| Cluster in the import table | Mechanism it points at | Route that continues |
+|---|---|---|
+| `OpenProcess` + `VirtualAllocEx` + `WriteProcessMemory` + `CreateRemoteThread`, or `NtCreateThreadEx`, `QueueUserAPC`, `SetThreadContext` | injection into another process: a loader, a launcher, or the program's own agent | `references/injection-and-hooking.md` |
+| `CreateToolhelp32Snapshot` + `Process32First/Next`, `EnumProcesses`, `OpenProcess` | enumerating processes, usually to find the analysis tool or the game before it | `references/anti-analysis.md` |
+| `IsDebuggerPresent`, `CheckRemoteDebuggerPresent`, `NtQueryInformationProcess`, `OutputDebugString` | anti-debug reads, direct or through the PEB | `references/anti-analysis.md` |
+| `LoadLibrary` + `GetProcAddress`, or little else | a stub that resolves the rest at run time | `references/protectors-and-packers.md` |
+| `RegOpenKeyEx`, `RegQueryValueEx`, `RegCreateKeyEx`, `RegSetValueEx` | local configuration or licence state — in the redirected 32-bit key when the image is 32-bit | `references/license-mechanisms.md` and `references/assembly-idioms.md` |
+| `CryptAcquireContext`, `CryptHashData`, `BCrypt*` | hashing or encryption of something local: a stored licence, an integrity digest, a challenge | `references/license-mechanisms.md` and `references/integrity-checks.md` |
+| `WinHttpOpen`, `InternetOpen`, `HttpSendRequest`, `WSAStartup` with `socket`/`send`/`recv` | a network-activated decision, or an update check | `references/network-activated-licensing.md` |
+| `GetVolumeInformation`, `GetAdaptersInfo`, `GetSystemFirmwareTable`, `WbemLocator` | machine binding: a fingerprint that the licence is scoped to | `references/license-mechanisms.md` |
+| `GetTickCount`, `QueryPerformanceCounter`, `timeGetTime` around `Sleep` or `NtDelayExecution` | timing checks: anti-debug or a trial clock | `references/anti-analysis.md` |
+| `FindWindow`, `GetForegroundWindow`, `GetWindowText`, `EnumWindows` | watching for a debugger, a monitor, or another product's window | `references/anti-analysis.md` |
+| `CreateFileMapping`, `MapViewOfFile`, `CreateMutex`, `CreateEvent` with a fixed name | one-instance enforcement, a local IPC handshake, or state shared with a helper process | `references/injection-and-hooking.md` |
+| `GetModuleFileName`, `GetTempPath`, `SHGetFolderPath`, `GetEnvironmentVariable` | where its state actually lives — resolve it before searching, and take the 32-bit view into account | `references/assembly-idioms.md` |
+| `CreateProcess`, `ShellExecuteEx`, `WinExec` | a relaunch, an elevation, an updater, or the launcher that extracts a payload | `references/installers-and-packaging.md` |
+| `SetWindowsHookEx`, `SetWinEventHook`, `RegisterHotKey` | system-wide observation or input capture | `references/injection-and-hooking.md` |
+| `OpenProcessToken` + `AdjustTokenPrivileges`, `IsUserAnAdmin` | privilege manipulation, or an elevation check with a second code path behind it | `references/environment.md` |
+| `VirtualProtect`, `FlushInstructionCache`, `VirtualAlloc` with an execute protection | code written at run time: a JIT, a trampoline, or a decryptor | `references/protectors-and-packers.md` |
+
+Two cautions. The same cluster appears in legitimate software — an installer injects, a security
+product enumerates processes — so the cluster is a direction, not a verdict. And an unresolved name is
+not an absent capability: delay-loaded and manually resolved imports never appear in this table, so a
+cluster that should be present and is not is evidence about the resolver. The search you ran is the
+finding, not the absence.
+
 ## What the program talks to
 
 Do this from the file, before any execution, because a first execution of an unknown binary should

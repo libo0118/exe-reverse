@@ -435,9 +435,10 @@ the feature observed directly.
 `unknown`, and it is worth stating precisely: **no .NET tool was installed on the host that wrote
 this file**, so every command above is quoted from its project's or vendor's documentation and
 none was executed here. `observed` in this file therefore means "the named document says so",
-not "a run reproduced it". The versions behind the claims are the ILSpyCmd 11.0.0 help text, the
+not "a run reproduced it". The versions behind the claims are the ILSpyCmd command-line help, the
 Microsoft Learn pages for `ildasm` and `ilasm`, the de4dot README at the 2015-era source range,
-and the dnSpyEx README, read on 2026-10-24.
+and the dnSpyEx README, read on 2026-10-24; the exact revision of each is recorded with its
+source in `skills/exe-reverse/evidence/tool-sources.md`.
 
 Also not covered:
 
