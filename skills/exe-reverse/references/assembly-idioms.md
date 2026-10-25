@@ -9,8 +9,9 @@ before deciding where to patch and what the patch must preserve.
 Load this when a routine's parameters or return value do not line up with the convention the
 toolchain implies; when a detour, stub or code cave must keep its callee working; when a prologue does
 not match the compiler the headers named; when a body is dense with string instructions or
-floating-point stack operations; when a virtual call has no direct target; and when a 32-bit target's
-file or registry access does not land where the documentation says it should.
+floating-point stack operations; when a virtual call has no direct target; when a routine's constants
+look like array scales or structure offsets; when one value selects among many bodies; and when a
+32-bit target's file or registry access does not land where the documentation says it should.
 
 Grades: the conventions and encodings are documented architecture, and applying one to a listing is
 `inferred`. Any statement about what a particular build emits is `unverified` until it is checked
@@ -176,6 +177,45 @@ that model the vtable pointer as a named first field, or place it before the obj
 mechanism rather than the ABI: in a real Microsoft build the vptr is at offset 0 and the first data
 member follows it, which is what the decompiler will show.
 
+## Structure and stride: the numbers that name the type
+
+A structure is an offset table and an array is a scale factor, so a listing's constants carry most of
+the type information that survived compilation — even when every name did not.
+
+| What the listing does | What it fixes |
+|---|---|
+| `[base + index*4]` | an array of 4-byte elements: the scale is the element width |
+| `[base + index*8]` on x64 | 8-byte elements — a pointer array, a `double`, or a 64-bit integer |
+| `lea ecx, [eax+eax*2]`, `lea rax, [rax+rax*4]` | index arithmetic by 3 or 5; `lea` is being used as a multiply, not to form an address |
+| `shl ecx, 4` then `lea edx, [ebp+ecx-30h]` | a row stride of 16: a two-dimensional array of four 4-byte elements per row |
+| `imul ecx, ecx, 20h` in the same position | a row stride of 32: five 4-byte elements, or eight of another width |
+| `add rax, 8` on a pointer | the pointee is 8 bytes wide — that is what `p++` compiled to |
+| `sub esp, N`, `mov ecx, N/4`, `rep movs`, `add esp, N` | a structure passed by value, size N; the copy *is* the argument |
+| an argument that is written to and also returned in RAX/EAX | a structure returned through a hidden pointer (RCX on x64): the source wrote `return s;` |
+| offsets that skip bytes between members | padding, or a pack setting that changed it |
+
+Three rules generate every layout under the default `/Zp8`:
+
+- The first member sits at offset 0.
+- Each later member starts at the next offset divisible by `min(pack, sizeof member)`.
+- The whole structure is rounded up to a multiple of `min(pack, largest member alignment)`, which is
+  where tail padding comes from.
+
+So `{char, int, char}` is 12 bytes by default — 1, 3 of padding, 4, 1, 3 of tail — and 6 bytes under
+`#pragma pack(1)`. A listing that stores the last `char` at `+5` and copies 6 bytes is telling you the
+pack setting, not that the structure is six bytes wide by nature.
+
+What changes on x64: only structures of 1, 2, 4 and 8 bytes travel in a register; anything larger is
+passed by reference in RCX, and a structure returned by value arrives through a hidden RCX that
+shifts every other argument one register to the right. An optimised compiler also copies small
+structures field by field or with SSE loads, so the `rep movs` shape above is the unoptimised case,
+not the rule.
+
+`inferred` for the layout arithmetic, which is documented `/Zp` behaviour; `unverified` for the
+per-build shapes, which come from the tutorial corpus named in
+`references/crt-startup-and-main.md`. Neither recovers the declaration: offsets bound the type, they
+do not restore the source (`references/coverage-and-limits.md`).
+
 ## WOW64: the two views a 32-bit target actually uses
 
 A 32-bit process on a 64-bit Windows runs under WOW64, and its file and registry paths are redirected
@@ -207,6 +247,40 @@ What this changes during analysis:
   a per-user store. A setting that "was written successfully" and cannot be found afterwards can be
   in either of two places; check both before calling the write a failure.
 
+## A dispatch is a shape, not a keyword
+
+One value selecting among many bodies compiles to one of four shapes, and the shape states something
+about the case set even when the source is gone.
+
+| Shape | What it is | What it tells you |
+|---|---|---|
+| `cmp eax, k; je L` repeated, ending in `jmp` | comparison chain | each compared constant is a case value; an if/else ladder and a small `switch` are the same listing, so the shape does not prove `switch` |
+| `sub eax, min; cmp eax, max-min; ja L_default; jmp [table + eax*4]` | bounds check, then an address table | the case set spans `min..max`; the table has `max-min+1` entries; `ja` is unsigned, so a value below `min` becomes huge and lands in `default` |
+| `movzx eax, byte [base+eax]; jmp [table + eax*4]` | offset table in front of the address table | holes in the range wasted too much space, so a byte-wide table maps each index to an entry |
+| a balanced `cmp`/`je`/`jl` tree | binary search over the cases | the values are sparse enough that log n comparisons beat a table |
+
+Reading one:
+
+- **The bounds check is the cheapest statement of the case set.** `sub eax, min` and
+  `cmp eax, max-min` give the lowest case, the span and therefore the table length, without reading
+  a single entry.
+- **The table is data, not code.** Decode it as an array of addresses, not as instructions
+  (`references/static-analysis.md`); an entry equal to the default's address is a hole, and two
+  entries with the same target are two cases sharing a body.
+- **A target inside another case's body is a fall-through**, the `case 1: case 2:` shape, and the
+  reason the number of distinct targets can be smaller than the number of cases.
+- **Patching one case is patching one entry**, which changes that case and nothing else — but the
+  table is normally read-only, so a file patch has to change the section's characteristics
+  (`references/patching.md`, the data-table row in its patch-site table).
+
+The thresholds usually quoted for this shape — "three cases or fewer", "a gap of six" — come from one
+VC++ 6.0 build and are `unverified`; they also contradict the corpus's own examples, where a case set
+of 1..10 with one hole still produced a table. What survives across compilers is the arithmetic: a
+`sub`/`cmp`/unsigned-`ja` triple followed by an indirect jump is a table lookup, and its operands give
+the range. On x64 the entries are eight bytes and the addressing is
+`jmp qword ptr [rax*8+table]`; the linker may also merge identical bodies, so several cases can
+share one address without the source having said so.
+
 ## Idioms worth recognising on sight
 
 | Listing | Means |
@@ -236,6 +310,12 @@ What this changes during analysis:
   an idiom — it is `references/cpu-vendor-divergence.md`.
 - **A reconstructed frame is a hypothesis.** The listing gives the shape a compiler intended; the
   unwinder gives the one the processor used. Where they disagree, the run is authoritative.
+- **A recovered layout is an interpretation, not the source.** Offsets and strides bound a type;
+  they do not restore a declaration, and `references/coverage-and-limits.md` rules out presenting them
+  as the original program text.
+- **A dispatch shape is not the source keyword.** A chain of comparisons is what an if/else ladder, a
+  short switch and a sparse switch all compile to; the listing supports the case set, not the keyword
+  that produced it.
 - **Conventions describe calls the compiler emitted.** A stub written by hand, a callback invoked by
   the system, and an exported function called from another language each need their convention
   confirmed from the call site, not assumed from the language the target is written in.

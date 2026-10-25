@@ -101,6 +101,7 @@ that has been exercised.
 | Unpacking a packaged Python program | no packaged sample was analysed here; the container behaviour is documented by the packagers' own tooling |
 | Recovering code objects from a versioned wrapper | no wrapped sample was obtained; the mechanism is quoted from one public analysis and is version-specific |
 | Instruction-level reading of a listing | no target was disassembled here; the conventions are documented architecture, and a producer claim (compiled here, assembled there) is `inferred` until a build whose toolchain is known confirms it |
+| C runtime startup and locating `main` | no target was started under a debugger here; the chain is documented in the runtime's own source, and the VC++ 6.0 startup shapes come from a public tutorial corpus and were not reproduced |
 | CPU-vendor divergence | no AMD host was available; the divergences are stated from both vendors' specifications and one public CVE analysis, and nothing was measured across vendors |
 
 ## Where the corpus comes from

@@ -26,6 +26,7 @@ becomes `run` only when someone runs it and records the output.
 | Triage | first contact with an unknown binary: identity, build evidence, protective signals, surface | Python only | `run` |
 | Toolchain fingerprinting | deciding which toolchain produced a binary, and what that implies for reading it | the binary; a disassembler only if the fingerprint is inconclusive | `run` for the header-level signals, `argued` for the toolchain-specific structure |
 | Instruction-level reading | reading a routine's convention, frame and idiom so that a patch or a detour preserves what the callee expects | a disassembler or decompiler — the repository ships none | `argued` |
+| C runtime startup reading | finding the program's own entry routine behind the runtime's startup, and telling runtime code from program code by its imports, exception frame and `/GS` cookie | a disassembler; a debugger to confirm the call into `main` — the repository ships none | `argued` |
 | CPU-vendor divergence reading | deciding whether an observed result is architectural or one implementation's choice, and reading a vendor-string dispatch | the binary; a disassembler with its target CPU pinned; a second-vendor host to confirm | `argued` |
 | Byte patching | making a change that fits an existing instruction or constant slot | Python only, plus a copy to write to | `run` |
 | Signature location | finding a site across builds rather than at one address | Python only; a second build for the comparison | `run` |

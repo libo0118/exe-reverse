@@ -23,6 +23,8 @@ without a check.
 | It starts, renders, logs nothing wrong — and one feature silently never works | `references/license-mechanisms.md` |
 | Your edit is present in the file but clearly not in effect at run time | `references/dynamic-debugging.md` |
 | A breakpoint at the entry point is never hit, yet the process runs | `references/pe-structure.md` |
+| The entry point is runtime startup code, and `main` is still unknown | `references/crt-startup-and-main.md` |
+| A routine's epilogue checks a value XORed from the frame, or the entry installs an `fs:[0]` chain | `references/crt-startup-and-main.md` |
 | The process dies when a debugger attaches, and only then | `references/anti-analysis.md` |
 | It dies on its own after a delay, with a crash that looks like an ordinary bug | `references/anti-analysis.md` |
 | Every licence check you patch is followed by another one | `references/license-mechanisms.md` |
@@ -56,6 +58,8 @@ without a check.
 | A detour or code cave crashes its callee, or the arguments arrive at wrong offsets | `references/assembly-idioms.md` |
 | A 32-bit target's licence file or registry key is absent from the path the documentation gives | `references/assembly-idioms.md` |
 | A prologue does not look like the compiler the headers named | `references/assembly-idioms.md` |
+| A dispatch reads its target from a table, or one value is compared against a long chain | `references/assembly-idioms.md` |
+| A callee receives a copy of a structure, or an argument the source never declared | `references/assembly-idioms.md` |
 | A routine compares the CPUID vendor string, or branches on a flag the manual calls undefined | `references/cpu-vendor-divergence.md` |
 | You are about to conclude "it must be server-side" | `references/network-activated-licensing.md` |
 | You cannot tell whether a failure is your patch or the target's own behaviour | `references/verification.md` |
@@ -79,6 +83,7 @@ reference that is loaded at the wrong moment costs context and answers nothing.
 | `references/static-analysis.md` | reading code: disassembly, decompilation, structure recovery, and where a listing lies |
 | `references/compiler-fingerprints.md` | the toolchain is unidentified, or the call structure does not look like C or C++ |
 | `references/assembly-idioms.md` | a listing must be read at the instruction level: the convention moves the arguments, the prologue says who produced the code, a string instruction stands in for a library routine, or a detour must preserve the frame |
+| `references/crt-startup-and-main.md` | the entry point is runtime code: what has run before `main`, where the `/GS` cookie and the SEH frame come from, and how to find `main` in a stripped image |
 | `references/cpu-vendor-divergence.md` | a result may belong to one processor's implementation rather than to x86-64: undefined flags, vendor-string dispatch, feature-gated decoding, system-instruction fault timing, or a specification about to be handed to another team |
 | `references/pe-diff-and-versions.md` | two builds must be compared, or a finding has to survive a version change |
 | `references/patching.md` | any byte edit: site choice, equal-length discipline, checksum, and proving the patch is reached |

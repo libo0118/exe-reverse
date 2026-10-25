@@ -133,6 +133,8 @@ Load the named file **before your next command**, not after your next three atte
 | It starts, renders, logs nothing wrong — and one feature silently never works | `references/license-mechanisms.md` |
 | Your edit is present in the file but clearly not in effect at run time | `references/dynamic-debugging.md` |
 | A breakpoint at the entry point is never hit, yet the process runs | `references/pe-structure.md` |
+| The entry point is runtime startup code, and `main` is still unknown | `references/crt-startup-and-main.md` |
+| A routine's epilogue checks a value XORed from the frame, or the entry installs an `fs:[0]` chain | `references/crt-startup-and-main.md` |
 | The process dies when a debugger attaches, and only then | `references/anti-analysis.md` |
 | It dies on its own after a delay, with a crash that looks like an ordinary bug | `references/anti-analysis.md` |
 | Every licence check you patch is followed by another one | `references/license-mechanisms.md` |
@@ -166,6 +168,8 @@ Load the named file **before your next command**, not after your next three atte
 | A detour or code cave crashes its callee, or the arguments arrive at wrong offsets | `references/assembly-idioms.md` |
 | A 32-bit target's licence file or registry key is absent from the path the documentation gives | `references/assembly-idioms.md` |
 | A prologue does not look like the compiler the headers named | `references/assembly-idioms.md` |
+| A dispatch reads its target from a table, or one value is compared against a long chain | `references/assembly-idioms.md` |
+| A callee receives a copy of a structure, or an argument the source never declared | `references/assembly-idioms.md` |
 | A routine compares the CPUID vendor string, or branches on a flag the manual calls undefined | `references/cpu-vendor-divergence.md` |
 | You are about to conclude "it must be server-side" | `references/network-activated-licensing.md` |
 | You cannot tell whether a failure is your patch or the target's own behaviour | `references/verification.md` |
