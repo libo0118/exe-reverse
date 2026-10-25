@@ -35,6 +35,11 @@ number is the byte count of the arguments the callee pops.
 A caller that cleans the stack is also the caller that must know the argument count statically, which
 is why a variadic `cdecl` call is recognisable from the `add esp` after it rather than from the callee.
 
+**64-bit values on a 32-bit ABI.** An `__int64` argument occupies two stack slots, and a 64-bit
+result comes back in EDX:EAX, high half in EDX — so a routine whose return is consumed as a pair is
+returning one 64-bit value, not two results, and a comparison of two of them is two compares because
+there is no 64-bit compare. On x64 the same value is one register and none of this applies.
+
 **64-bit.** Four integer arguments in RCX, RDX, R8, R9 and four floating-point arguments in
 XMM0-XMM3; the rest at `[rsp+0x20]`, `[rsp+0x28]`, … — the first 32 bytes above the return address
 belong to the callee as **shadow space** for exactly those four registers. The caller allocates and
@@ -289,6 +294,7 @@ share one address without the source having said so.
 | `test eax, eax` or `or eax, eax` | compare with zero through SF and ZF; a literal `cmp eax, 0` is the rarer form |
 | `lea eax, [eax+eax*2]` | multiply by three: `lea` is arithmetic, not only address formation |
 | `lea rax, [rip+disp]` | the address of a global or a literal — the 64-bit cross-reference |
+| a direct absolute operand, `mov eax, dword ptr [0x42FC00]` (32-bit) | a global or a constant table, never a local: the address is fixed in the image, which is also what makes it patchable by RVA |
 | `call qword ptr [rip+disp]` | an imported API or a function pointer slot, which is the import table in one instruction |
 | `mov rax, gs:[60h]`, `mov eax, fs:[30h]` | the process environment block: the shape of an anti-debug read or a manual API resolution walk |
 | `movzx` / `movsx` | the value is narrower than the register, and the extension tells you how it is treated: zero-extended is unsigned or a table index, sign-extended feeds signed arithmetic and negative bounds |
