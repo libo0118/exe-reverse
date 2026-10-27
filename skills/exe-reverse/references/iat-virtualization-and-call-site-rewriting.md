@@ -79,7 +79,9 @@ were counted over.
    — and record which one you used.
 2. **Inventory the slots.** Three sources, in descending order of trust: the import descriptors if
    they survived, the import address table directory's range if it did, and the addresses that a
-   write watch reported. Say which source the inventory came from; they do not always agree.
+   write watch reported. Say which source the inventory came from; they do not always agree. An
+   inventory that came back empty is a finding about this run, not a table that holds no addresses:
+   it means the range has to be supplied or rebuilt before any pairing is possible.
 3. **Pair a site to a slot by value.** The site's target address equals the slot's value. This is
    the whole pairing rule, and it is also the mechanism an open-source unpacker's fixup routine
    implements (`observed` in that source: it reads the target from the relative call, looks it up in

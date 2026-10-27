@@ -44,9 +44,9 @@ Usage:
     python iat_callsite_restore.py dumped.exe --base 0x2B0000 --iat 0x48D000,0x1000
     python iat_callsite_restore.py dumped.exe --json --full-out report.json
 
-Exit codes: 0 = the analysis completed and no site was refused (result clean, needs-trace,
-report-only or repaired), 1 = at least one site was refused or a rewrite failed verification,
-2 = usage error, 3 = the input is not a parseable PE.
+Exit codes: 0 = the analysis completed and no site was refused (result no-pairs, needs-trace,
+report-only or repaired), 1 = at least one site was refused, a rewrite failed verification, or the
+run had no slot values to pair against, 2 = usage error, 3 = the input is not a parseable PE.
 """
 import argparse
 import hashlib
@@ -367,6 +367,11 @@ def decide_result(report, wrote):
         return 'incomplete'
     if report['pairs']:
         return 'repaired' if wrote else 'report-only'
+    if not report['iat']['slots']:
+        # No slot values at all is not evidence that the table is untouched: it is evidence that
+        # this run has nothing to pair against. Reporting that as needs-trace sends the reader to
+        # write a trace they do not need, which is the same misdiagnosis in a different direction.
+        return 'no-slots'
     if report['unpaired']:
         return 'needs-trace'
     return 'no-pairs'
@@ -420,6 +425,10 @@ def print_report(report, max_sites):
         out.write('next     each refusal is a decision for a person: a site with no filler byte is a '
                   'structural edit, and an ambiguous slot needs the trace that says which slot the '
                   'call actually used\n')
+    elif report['result'] == 'no-slots':
+        out.write('next     this run has no slot values to pair against: pass --iat RVA,SIZE with '
+                  'the table range, or reconstruct the table first. Without it the sites below are '
+                  'calls whose target nothing in this image holds\n')
     elif report['result'] == 'needs-trace':
         out.write('next     either the table does not hold these targets, or the base is not the '
                   'one the image ran at -- check --base first, because a wrong base produces the '
@@ -518,7 +527,7 @@ def main():
         if args.full_out:
             sys.stdout.write('full record %s\n' % args.full_out)
 
-    return 1 if report['result'] == 'incomplete' else 0
+    return 1 if report['result'] in ('incomplete', 'no-slots') else 0
 
 
 if __name__ == '__main__':

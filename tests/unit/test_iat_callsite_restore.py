@@ -155,9 +155,24 @@ def test_a_clean_image_reports_no_pairs(load_script, fixtures):
     assert mod.decide_result(report, wrote=False) == "no-pairs"
 
 
+def test_no_slot_values_is_its_own_verdict(load_script):
+    """A run with nothing to pair against must not send the reader to write a trace.
+
+    Both causes -- a table that holds handles, and a table this run never found -- produce the same
+    empty pair list. The first needs a trace; the second needs --iat. Collapsing them into one token
+    was the first version of this rule.
+    """
+    mod = load_script("iat_callsite_restore.py")
+    with_no_slots = {"pairs": [], "refused": [], "unpaired": [1], "iat": {"slots": 0, "classes": {}}}
+    assert mod.decide_result(with_no_slots, wrote=False) == "no-slots"
+    with_slots = {"pairs": [], "refused": [], "unpaired": [1],
+                  "iat": {"slots": 4, "classes": {}}}
+    assert mod.decide_result(with_slots, wrote=False) == "needs-trace"
+
+
 def test_result_tokens_follow_the_evidence(load_script):
     mod = load_script("iat_callsite_restore.py")
-    base = {"pairs": [], "refused": [], "unpaired": [], "iat": {"classes": {}}}
+    base = {"pairs": [], "refused": [], "unpaired": [], "iat": {"slots": 4, "classes": {}}}
     assert mod.decide_result(dict(base), wrote=False) == "no-pairs"
     assert mod.decide_result(dict(base, pairs=[1]), wrote=False) == "report-only"
     assert mod.decide_result(dict(base, pairs=[1]), wrote=True) == "repaired"
