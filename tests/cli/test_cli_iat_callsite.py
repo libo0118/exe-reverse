@@ -7,7 +7,8 @@ What a caller can rely on, and what this file pins:
   * with --out, the input file is byte-identical afterwards, the output is a different file, and the
     six bytes written at each site decode to an indirect call through the slot the report names;
   * a refusal is exit 1 and the word "incomplete" -- the failure mode this repository is organised
-    against is a partial repair reported as a finished one.
+    against is a partial repair reported as a finished one; two candidate tables get their own token,
+    "ambiguous-iat", because a person has to say which one is the table.
 """
 import hashlib
 import json
@@ -67,6 +68,29 @@ def test_the_pe32_displacement_is_an_absolute_slot_address(run_script, iat_scena
     assert int.from_bytes(raw[2:], "little") == scen.base + scen.slot_rva
 
 
+def test_discovery_finds_the_table_from_the_calls(run_script, iat_scenario):
+    """No --iat, no described range for these slots: the report must show the search, not a guess."""
+    scen = iat_scenario("pe64")
+    text = run_script("iat_callsite_restore.py", scen.path)
+    assert text.returncode == 1, text.stderr
+    assert "discover unique after no-pairs" in text.stdout
+    assert "<- used" in text.stdout
+
+    payload = document(run_script("iat_callsite_restore.py", scen.path, "--json").stdout)
+    assert payload["discovery"]["chosen"] == {"start": 0x3020, "size": 0x18}
+    assert payload["discovery"]["trigger"] == "no-pairs"
+    assert [p["site_rva"] for p in payload["pairs"]] == [scen.sites["filler_after"],
+                                                         scen.sites["filler_before"]]
+
+
+def test_two_candidate_tables_are_refused_with_their_own_token(run_script, iat_scenario_twin):
+    result = run_script("iat_callsite_restore.py", iat_scenario_twin)
+    assert result.returncode == 1, result.stderr
+    assert "RESULT=ambiguous-iat" in result.stdout
+    assert "discover ambiguous" in result.stdout
+    assert "more than one run of pointers" in result.stdout
+
+
 def test_a_clean_image_exits_zero(run_script, fixtures):
     result = run_script("iat_callsite_restore.py", fixtures.pe64.path)
     assert result.returncode == 0, result.stderr
@@ -102,6 +126,7 @@ def test_json_carries_the_document_then_the_verdict_line(run_script, iat_scenari
                                                          scen.sites["filler_before"]]
     assert {r["reason"] for r in payload["refused"]} == {"no-filler", "ambiguous-slot"}
     assert "output" not in payload, "a report-only run must not claim an output file"
+    assert payload["discovery"] is None, "--iat is the reader asserting the range; no search runs"
 
 
 def test_full_out_writes_the_same_document_and_says_where(run_script, iat_scenario, tmp_path):

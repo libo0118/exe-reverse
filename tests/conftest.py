@@ -592,6 +592,25 @@ def iat_scenario(tmp_path_factory, build_fixture, load_script):
 
 
 @pytest.fixture(scope="session")
+def iat_scenario_twin(iat_scenario, fixture_dir, load_script):
+    """The same scenario with one more slot in a different section.
+
+    Two runs of matching pointers is the case discovery must refuse: the second cluster holds the
+    same target from a section the first cluster is not in, which is what a duplicated or copied
+    table looks like from the outside. Built here so both layers test the same bytes.
+    """
+    scen = iat_scenario("pe64")
+    data = bytearray(scen.path.read_bytes())
+    pe = load_script("peutil.py").PE(bytes(data))
+    off = pe.rva_to_offset(0x5010)
+    assert off is not None, "the second-cluster RVA has no file offset in the fixture"
+    data[off:off + 8] = struct.pack("<Q", scen.base + 0x9000)
+    path = fixture_dir / "pe64-iat-twin.exe"
+    path.write_bytes(bytes(data))
+    return path
+
+
+@pytest.fixture(scope="session")
 def synthetic_elf(fixture_dir):
     """The generated ELF64, written once for the whole session."""
     data, meta = build_synthetic_elf()

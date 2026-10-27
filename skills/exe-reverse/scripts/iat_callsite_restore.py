@@ -17,11 +17,16 @@ What it does, in order:
      space the image was captured at (--base, not the header's preferred base).
   3. Pairs a site to a slot when the target address *equals* the slot's value. That is the whole
      pairing rule.
-  4. Decides the sixth byte. The rewrite is five bytes into six, so it fits only where a sixth byte
+  4. If the described table explained none of the calls, looks for the table the calls do explain:
+     the non-executable sections are scanned for pointer-sized values equal to a call target, the
+     matches are clustered, and a single cluster is used. Two clusters are reported and not used,
+     because choosing between two runs of matching pointers is how a call ends up going through the
+     wrong slot. Suppress the whole step with --no-discover, or name the range with --iat.
+  5. Decides the sixth byte. The rewrite is five bytes into six, so it fits only where a sixth byte
      is available: a NOP after the call (rewrite in place), a NOP before it (the window starts one
      byte earlier), or no filler at all -- in which case the sixth byte belongs to the next
      instruction and the repair is *structural*. That last case is refused, not forced.
-  5. Rewrites, then re-reads the written file and re-decodes every site to confirm it addresses the
+  6. Rewrites, then re-reads the written file and re-decodes every site to confirm it addresses the
      intended slot.
 
 What it refuses, and why a refusal is the useful output:
@@ -31,7 +36,9 @@ What it refuses, and why a refusal is the useful output:
     often enough to be mistaken for a success;
   * a site with no filler byte, because writing there overwrites the first byte of the next
     instruction -- a length change, which is a structural edit and not a byte swap;
-  * two candidate windows that overlap, because neither can be written without destroying the other.
+  * two candidate windows that overlap, because neither can be written without destroying the other;
+  * two runs of slot values matching different call targets, because a single pick from two is a
+    coin toss that the file will not reveal.
 
 What it does not do: unpack. It assumes you already have an image whose code is decrypted. It does
 not devirtualise, does not resolve handles by arithmetic, and does not carry a table of known
@@ -42,11 +49,13 @@ Usage:
     python iat_callsite_restore.py dumped.exe                    # report only, writes nothing
     python iat_callsite_restore.py dumped.exe --out fixed.exe    # rewrite and verify
     python iat_callsite_restore.py dumped.exe --base 0x2B0000 --iat 0x48D000,0x1000
+    python iat_callsite_restore.py dumped.exe --no-discover      # control: described slots only
     python iat_callsite_restore.py dumped.exe --json --full-out report.json
 
 Exit codes: 0 = the analysis completed and no site was refused (result no-pairs, needs-trace,
-report-only or repaired), 1 = at least one site was refused, a rewrite failed verification, or the
-run had no slot values to pair against, 2 = usage error, 3 = the input is not a parseable PE.
+report-only or repaired), 1 = at least one site was refused, a rewrite failed verification, the run
+had no slot values to pair against, or discovery found two candidate tables, 2 = usage error,
+3 = the input is not a parseable PE.
 """
 import argparse
 import hashlib
@@ -59,6 +68,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from peutil import PE, ParseError, DIR_IAT, s32       # noqa: E402
 
 DEFAULT_MAX_SITES = 40
+DEFAULT_DISCOVER_GAP = 0x1000   # one page: the unit the loader protects, so a natural table edge
 SECTION_EXECUTE = 0x20000000
 SECTION_CODE = 0x00000020
 
@@ -99,6 +109,26 @@ def parse_range(text):
     return int(body[0], 0), int(body[1], 0)
 
 
+def slots_from_range(pe, start, length, source, slots):
+    """Add every pointer-sized entry in [start, start+length) to the inventory.
+
+    Slot tables are pointer-aligned in every build seen here, so an unaligned walk is not offered:
+    a half-aligned table would mix the low half of one entry with the high half of the next, and
+    the resulting values would pair nothing while looking like a real inventory.
+    """
+    step = 8 if pe.is_pe32plus else 4
+    added = False
+    for slot_rva in range(start, start + length - step + 1, step):
+        if slot_rva in slots:
+            continue
+        value = read_ptr(pe, slot_rva)
+        if value is None:
+            continue
+        slots[slot_rva] = {'value': value, 'source': source}
+        added = True
+    return added
+
+
 def slot_inventory(pe, iat_override):
     """{rva: {'value': int, 'source': str}} plus the list of sources actually used."""
     slots = {}
@@ -119,33 +149,12 @@ def slot_inventory(pe, iat_override):
             sources.append('import-descriptor')
 
     rva, size = pe.directories.get(DIR_IAT, (0, 0))
-    if rva and size:
-        used = False
-        step = 8 if pe.is_pe32plus else 4
-        for slot_rva in range(rva, rva + size - step + 1, step):
-            if slot_rva in slots:
-                continue
-            value = read_ptr(pe, slot_rva)
-            if value is None:
-                continue
-            slots[slot_rva] = {'value': value, 'source': 'iat-directory'}
-            used = True
-        if used:
-            sources.append('iat-directory')
+    if rva and size and slots_from_range(pe, rva, size, 'iat-directory', slots):
+        sources.append('iat-directory')
 
     if iat_override:
         start, length = iat_override
-        used = False
-        step = 8 if pe.is_pe32plus else 4
-        for slot_rva in range(start, start + length - step + 1, step):
-            if slot_rva in slots:
-                continue
-            value = read_ptr(pe, slot_rva)
-            if value is None:
-                continue
-            slots[slot_rva] = {'value': value, 'source': 'explicit-range'}
-            used = True
-        if used:
+        if slots_from_range(pe, start, length, 'explicit-range', slots):
             sources.append('explicit-range')
 
     return slots, sources
@@ -175,14 +184,14 @@ def classify_slots(pe, base, slots):
     return out
 
 
-def scan_sites(pe, base, value_index):
-    """Walk the executable sections and classify every relative call/jmp.
+def walk_sites(pe, base):
+    """Every E8/E9 in an executable section, with the absolute target it computes to.
 
-    Returns (pairs, unpaired, refused_candidates, counts). A pair is a site whose target equals a
-    slot's value; anything else that leaves the image is reported as unpaired rather than repaired.
+    Split from the pairing because discovery needs the targets *before* any slot exists, which is
+    the whole point of discovery. Keeping one function that both walked and paired made that
+    ordering impossible to express.
     """
-    pairs = []
-    unpaired = []
+    sites = []
     counts = {'bytes': 0, 'e8': 0, 'e9': 0, 'examined': 0, 'interior': 0}
     sections = []
 
@@ -203,27 +212,101 @@ def scan_sites(pe, base, value_index):
                 continue
             counts['e8' if op == CALL else 'e9'] += 1
             rva = sec.virtual_address + off
-            site_va = base + rva
-            target_va = site_va + SITE_REL_LEN + s32(data, off + 1)
+            target_va = base + rva + SITE_REL_LEN + s32(data, off + 1)
             counts['examined'] += 1
+            sites.append({'site_rva': rva,
+                          'kind': 'call' if op == CALL else 'jmp',
+                          'target_va': target_va})
 
-            slot_rvas = value_index.get(target_va)
-            if slot_rvas:
-                pairs.append({
-                    'site_rva': rva,
-                    'kind': 'call' if op == CALL else 'jmp',
-                    'target_va': target_va,
-                    'slot_rvas': sorted(slot_rvas),
-                })
-                continue
+    return sites, sections, counts
 
-            target_rva = target_va - base
-            if pe.section_of_rva(target_rva) is None:
-                unpaired.append({'site_rva': rva, 'target_va': target_va})
-            else:
-                counts['interior'] += 1
 
-    return pairs, unpaired, sections, counts
+def pair_sites(pe, base, sites, value_index):
+    """A pair is a site whose target equals a slot's value; the rest is reported, never repaired."""
+    pairs = []
+    unpaired = []
+    interior = 0
+    for site in sites:
+        slot_rvas = value_index.get(site['target_va'])
+        if slot_rvas:
+            pairs.append({
+                'site_rva': site['site_rva'],
+                'kind': site['kind'],
+                'target_va': site['target_va'],
+                'slot_rvas': sorted(slot_rvas),
+            })
+        elif pe.section_of_rva(site['target_va'] - base) is None:
+            unpaired.append({'site_rva': site['site_rva'], 'target_va': site['target_va']})
+        else:
+            interior += 1
+    return pairs, unpaired, interior
+
+
+def invert(slots):
+    """value -> [slot rva, ...]. A list, because two slots holding one address is a real case."""
+    index = {}
+    for rva, info in slots.items():
+        index.setdefault(info['value'], []).append(rva)
+    return index
+
+
+def discover_iat(pe, base, target_vas, max_gap):
+    """Find the slot table from the calls: the table holds the values those calls target.
+
+    Why this works at all: the rewrite replaced "call through the slot" with "call the stub", so the
+    slot still holds the stub's address in the builds where the table survived with stubs in it. No
+    import data is needed -- the targets are the search key.
+
+    Why it refuses: one cluster of matches is used; two or more are reported and not used, because
+    choosing one of two runs of matching pointers is the kind of guess that yields a file which
+    loads and calls the wrong API. A single match is called weak for the same reason: one pointer
+    that happens to equal a target is a coincidence until something else agrees with it.
+
+    The gap tolerance is one page by default, because a page is the unit the loader protects: a
+    table split across pages is unusual, and a run of matches that spans pages without a
+    protection boundary between them is one table.
+    """
+    step = 8 if pe.is_pe32plus else 4
+    fmt = '<Q' if pe.is_pe32plus else '<I'
+    want = set(target_vas)
+    hits = []
+    scanned = []
+
+    for sec in pe.sections:
+        if is_executable(sec):
+            continue
+        start = sec.raw_pointer or 0
+        size = sec.raw_size or 0
+        if not start or size < step:
+            continue
+        data = pe.d[start:start + size]
+        scanned.append({'name': sec.name, 'rva': sec.virtual_address, 'raw_size': size})
+        for off in range(0, len(data) - step + 1, step):
+            if struct.unpack_from(fmt, data, off)[0] in want:
+                hits.append(sec.virtual_address + off)
+
+    hits.sort()
+    clusters = []
+    for rva in hits:
+        if clusters and rva - clusters[-1][-1] <= max_gap:
+            clusters[-1].append(rva)
+        else:
+            clusters.append([rva])
+
+    detail = [{'start': c[0], 'end': c[-1] + step, 'hits': len(c)} for c in clusters]
+    chosen = None
+    if len(clusters) == 1 and len(clusters[0]) >= 2:
+        status = 'unique'
+        chosen = {'start': clusters[0][0], 'size': clusters[0][-1] - clusters[0][0] + step}
+    elif len(clusters) > 1:
+        status = 'ambiguous'
+    elif len(clusters) == 1:
+        status = 'weak'
+    else:
+        status = 'none'
+
+    return {'status': status, 'targets': len(want), 'hits': len(hits), 'scanned': scanned,
+            'clusters': detail, 'chosen': chosen, 'max_gap': max_gap}
 
 
 def plan_windows(pe, pairs):
@@ -326,13 +409,33 @@ def verify_written(blob, pe_out, base, planned):
 def build_report(args, blob, pe, data_out_note=None):
     base = args.base if args.base is not None else pe.image_base
     slots, sources = slot_inventory(pe, args.iat)
+    described = len(slots)
+    sites, sections, counts = walk_sites(pe, base)
+
+    pairs, unpaired, interior = pair_sites(pe, base, sites, invert(slots))
+    counts['interior'] = interior
+
+    discovery = None
+    # Discovery runs when the described table did not explain the calls: either there was no
+    # inventory at all, or it produced no pair while calls still leave the image. An explicit --iat
+    # suppresses it, because that is the reader asserting the range.
+    if not args.no_discover and not args.iat and not pairs:
+        outside = {s['target_va'] for s in sites if pe.section_of_rva(s['target_va'] - base) is None}
+        if outside:
+            discovery = discover_iat(pe, base, outside, args.discover_gap)
+            discovery['trigger'] = 'no-slots' if described == 0 else 'no-pairs'
+            if discovery['chosen']:
+                added = slots_from_range(pe, discovery['chosen']['start'],
+                                         discovery['chosen']['size'], 'discovered-range', slots)
+                discovery['used'] = bool(added)
+                if added:
+                    sources.append('discovered-range')
+                    pairs, unpaired, interior = pair_sites(pe, base, sites, invert(slots))
+                    counts['interior'] = interior
+            else:
+                discovery['used'] = False
+
     classes = classify_slots(pe, base, slots)
-
-    value_index = {}
-    for rva, info in slots.items():
-        value_index.setdefault(info['value'], []).append(rva)
-
-    pairs, unpaired, sections, counts = scan_sites(pe, base, value_index)
     planned, refused = plan_windows(pe, pairs)
 
     used = {item['slot_rva'] for item in planned}
@@ -348,6 +451,7 @@ def build_report(args, blob, pe, data_out_note=None):
             'base_source': 'explicit --base' if args.base is not None else 'header ImageBase',
         },
         'iat': {'sources': sources, 'slots': len(slots), 'classes': classes},
+        'discovery': discovery,
         'sections_scanned': sections,
         'scan': counts,
         'pairs': planned,
@@ -365,6 +469,9 @@ def build_report(args, blob, pe, data_out_note=None):
 def decide_result(report, wrote):
     if report['refused'] or report.get('verification_failures'):
         return 'incomplete'
+    discovery = report.get('discovery') or {}
+    if discovery.get('status') == 'ambiguous':
+        return 'ambiguous-iat'
     if report['pairs']:
         return 'repaired' if wrote else 'report-only'
     if not report['iat']['slots']:
@@ -394,6 +501,19 @@ def print_report(report, max_sites):
     out.write('         zero %d, below image %d, in image %d, above image %d\n'
               % (classes['zero'], classes['below_image'], classes['in_image'],
                  classes['above_image']))
+    discovery = report.get('discovery')
+    if discovery:
+        out.write('discover %s after %s: %d call target(s), %d slot value(s) matched, %d cluster(s)\n'
+                  % (discovery['status'], discovery['trigger'], discovery['targets'],
+                     discovery['hits'], len(discovery['clusters'])))
+        out.write('         scanned %s\n'
+                  % (', '.join('%s@%#x' % (s['name'], s['rva'])
+                               for s in discovery['scanned']) or 'no data section'))
+        for cluster in discovery['clusters'][:max_sites]:
+            out.write('         cluster %#010x..%#010x  %d hit(s)%s\n'
+                      % (cluster['start'], cluster['end'], cluster['hits'],
+                         '  <- used' if discovery['chosen']
+                         and cluster['start'] == discovery['chosen']['start'] else ''))
     out.write('sections %s\n' % (', '.join('%s@%#x' % (s['name'], s['rva'])
                                            for s in report['sections_scanned']) or 'none'))
     scan = report['scan']
@@ -421,7 +541,12 @@ def print_report(report, max_sites):
     if len(report['unpaired']) > max_sites:
         out.write('         ... %d more\n' % (len(report['unpaired']) - max_sites))
 
-    if report['result'] == 'incomplete':
+    if report['result'] == 'ambiguous-iat':
+        out.write('next     more than one run of pointers matches the call targets, so no table was '
+                  'chosen: name the range with --iat, or dump the table from the process and pass '
+                  'it there. Picking one of these clusters is how a call ends up going through the '
+                  'wrong slot\n')
+    elif report['result'] == 'incomplete':
         out.write('next     each refusal is a decision for a person: a site with no filler byte is a '
                   'structural edit, and an ambiguous slot needs the trace that says which slot the '
                   'call actually used\n')
@@ -461,7 +586,12 @@ def main():
     ap.add_argument('--base', type=lambda v: int(v, 0),
                     help='address the image was captured at (default: the header ImageBase)')
     ap.add_argument('--iat', type=parse_range, metavar='RVA,SIZE',
-                    help='explicit import-table range, for images whose import directory is gone')
+                    help='explicit import-table range; suppresses discovery')
+    ap.add_argument('--no-discover', action='store_true',
+                    help='do not look for the table when the described slots pair nothing')
+    ap.add_argument('--discover-gap', type=int, default=DEFAULT_DISCOVER_GAP, metavar='BYTES',
+                    help='matches closer than this many bytes are one table (default %d, one page)'
+                    % DEFAULT_DISCOVER_GAP)
     ap.add_argument('--max-sites', type=int, default=DEFAULT_MAX_SITES,
                     help='site rows printed per list (default %d)' % DEFAULT_MAX_SITES)
     ap.add_argument('--json', action='store_true', help='emit the report as JSON')
@@ -527,7 +657,7 @@ def main():
         if args.full_out:
             sys.stdout.write('full record %s\n' % args.full_out)
 
-    return 1 if report['result'] in ('incomplete', 'no-slots') else 0
+    return 1 if report['result'] in ('incomplete', 'no-slots', 'ambiguous-iat') else 0
 
 
 if __name__ == '__main__':

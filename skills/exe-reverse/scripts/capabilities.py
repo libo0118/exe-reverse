@@ -779,8 +779,9 @@ CAPABILITIES = {
         'required': ['python310', 'file:iat_callsite_restore.py', 'artifact:dumped_image'],
         'depends_on': ['pe_structure_read'],
         'scripts': ['iat_callsite_restore.py'],
-        'note': 'Offline pairing by value, a six-byte rewrite with the filler byte decided per '
-                'site, and a refusal for the site whose sixth byte is the next instruction. It '
+        'note': 'Offline pairing by value, a search for the table when no directory describes it, '
+                'a six-byte rewrite with the filler byte decided per site, and a refusal for the '
+                'site whose sixth byte is the next instruction or for two candidate tables. It '
                 'repairs an import layer, never a protector: a virtualised region is untouched.',
     },
     'fixture_generation': {

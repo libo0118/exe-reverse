@@ -81,7 +81,8 @@ were counted over.
    they survived, the import address table directory's range if it did, and the addresses that a
    write watch reported. Say which source the inventory came from; they do not always agree. An
    inventory that came back empty is a finding about this run, not a table that holds no addresses:
-   it means the range has to be supplied or rebuilt before any pairing is possible.
+   it means the range has to be supplied or rebuilt before any pairing is possible — or found, which
+   is the search described below.
 3. **Pair a site to a slot by value.** The site's target address equals the slot's value. This is
    the whole pairing rule, and it is also the mechanism an open-source unpacker's fixup routine
    implements (`observed` in that source: it reads the target from the relative call, looks it up in
@@ -98,6 +99,28 @@ were counted over.
 7. **Report the leftovers.** Sites with no slot and slots with no site are the content of the
    report, not noise around it: the first is a call the protector resolved by some other route, the
    second is an import nothing in this code section uses.
+
+## When there is no table to inventory
+
+A captured image frequently has none of the three sources: the protector destroyed the directory and
+no write watch was taken. The table is still findable, because the rewrite left one relation behind —
+**the slot holds the address the call targets**. So the call sites can be used as the search key:
+
+1. Collect the targets of the relative calls that leave the image. Those are the stubs.
+2. Scan the **non-executable** sections for pointer-aligned entries equal to one of those targets.
+3. Cluster the matches by proximity. One cluster is the table; the range it spans is the inventory.
+
+Two rules keep this from becoming a guess. **Two clusters are refused**, and both are printed: a
+duplicated table, a copied table and a table split by a section boundary all look like this from the
+outside, and choosing one of two runs of matching pointers produces a file that loads and calls the
+wrong API for one import. **A single match is reported as weak**, because one pointer that happens to
+equal a call target is a coincidence until a second entry agrees with it.
+
+Two properties of the search are worth knowing before reading its result. It finds nothing when the
+slots hold tags rather than stub addresses — that build has no value relation to search — and it finds
+nothing when the base is wrong, because every candidate target is then computed in the wrong address
+space. Those two failures look identical and need opposite responses, so check the base before
+concluding that the table holds handles.
 
 ## Version divergence, and why this is a map rather than a fact
 

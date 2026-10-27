@@ -19,7 +19,8 @@ pytestmark = pytest.mark.unit
 
 
 def _args(image, **kw):
-    base = {"image": str(image), "out": None, "base": None, "iat": None, "max_sites": 40}
+    base = {"image": str(image), "out": None, "base": None, "iat": None, "max_sites": 40,
+            "no_discover": False, "discover_gap": 0x1000}
     base.update(kw)
     return argparse.Namespace(**base)
 
@@ -110,18 +111,41 @@ def test_the_report_pairs_the_restorable_sites_and_names_the_others(iat_scenario
     assert report["input"]["base_used"] == scen.base
 
 
-def test_without_the_slot_range_the_report_says_needs_trace(iat_scenario, load_script):
-    """No slot describes these targets, and the calls leave the image: that is the handle case.
+def test_without_the_slot_range_the_table_is_found_from_the_calls(iat_scenario, load_script):
+    """Discovery is the default, and it recovers the same two pairs the explicit range produced.
 
-    It is also the reason the verdict is not "clean". Nothing was found by pairing, and the correct
-    reading is that pairing cannot work on this image, not that the image is untouched.
+    The scenario's slots sit in a range no directory describes -- the normal shape of a captured
+    image -- so this is the case discovery exists for. Arriving at the same two pairs as the --iat
+    run is the whole claim: the table was found, not guessed.
     """
     mod = load_script("iat_callsite_restore.py")
     scen = iat_scenario("pe64")
     blob = scen.path.read_bytes()
     pe = load_script("peutil.py").PE(blob)
     report = mod.build_report(_args(scen.path), blob, pe)
+
+    assert report["discovery"]["status"] == "unique"
+    assert report["discovery"]["trigger"] == "no-pairs"
+    assert report["discovery"]["chosen"] == {"start": 0x3020, "size": 0x18}
+    assert "discovered-range" in report["iat"]["sources"]
+    assert [p["site_rva"] for p in report["pairs"]] == [scen.sites["filler_after"],
+                                                        scen.sites["filler_before"]]
+    assert {r["reason"] for r in report["refused"]} == {"no-filler", "ambiguous-slot"}
+
+
+def test_discovery_can_be_turned_off_for_a_control_run(iat_scenario, load_script):
+    """With discovery suppressed, the same image reports what the described slots could not do.
+
+    This is the control for the test above: without it, "discovery worked" could be a statement
+    about the scenario rather than about the search.
+    """
+    mod = load_script("iat_callsite_restore.py")
+    scen = iat_scenario("pe64")
+    blob = scen.path.read_bytes()
+    pe = load_script("peutil.py").PE(blob)
+    report = mod.build_report(_args(scen.path, no_discover=True), blob, pe)
     assert report["pairs"] == []
+    assert report["discovery"] is None
     assert len(report["unpaired"]) == 4
     assert mod.decide_result(report, wrote=False) == "needs-trace"
 
@@ -143,6 +167,38 @@ def test_a_wrong_base_produces_the_same_verdict_as_a_missing_table(iat_scenario,
     assert len(report["unpaired"]) == 4
     assert mod.decide_result(report, wrote=False) == "needs-trace"
     assert report["input"]["base_source"] == "explicit --base"
+
+
+def test_two_clusters_of_matching_pointers_are_refused(iat_scenario_twin, load_script):
+    mod = load_script("iat_callsite_restore.py")
+    blob = iat_scenario_twin.read_bytes()
+    pe = load_script("peutil.py").PE(blob)
+    report = mod.build_report(_args(iat_scenario_twin), blob, pe)
+
+    assert report["discovery"]["status"] == "ambiguous"
+    assert len(report["discovery"]["clusters"]) == 2
+    assert report["discovery"]["chosen"] is None
+    assert report["pairs"] == []
+    assert mod.decide_result(report, wrote=False) == "ambiguous-iat"
+
+
+def test_discovery_reports_when_no_slot_holds_a_target(iat_scenario, load_script, tmp_path):
+    """A search that found nothing must say so; an empty result is not a clean image."""
+    mod = load_script("iat_callsite_restore.py")
+    scen = iat_scenario("pe64")
+    blob = bytearray(scen.path.read_bytes())
+    pe = load_script("peutil.py").PE(bytes(blob))
+    for rva in (0x3020, 0x3028, 0x3030):
+        off = pe.rva_to_offset(rva)
+        blob[off:off + 8] = b"\x00" * 8
+    path = tmp_path / "no-table.exe"
+    path.write_bytes(bytes(blob))
+    pe2 = load_script("peutil.py").PE(bytes(blob))
+    report = mod.build_report(_args(path), bytes(blob), pe2)
+    assert report["discovery"]["status"] == "none"
+    assert report["discovery"]["hits"] == 0
+    assert report["pairs"] == []
+    assert mod.decide_result(report, wrote=False) == "needs-trace"
 
 
 def test_a_clean_image_reports_no_pairs(load_script, fixtures):

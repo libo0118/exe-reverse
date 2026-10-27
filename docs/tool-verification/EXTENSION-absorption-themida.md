@@ -48,7 +48,10 @@ its own subject in one place can be wrong in another, and the wrong part does no
 - **`references/environment.md`**: the compatibility-shim fact, because it changes what "it ran
   once" means and it lives in neither file.
 - **`scripts/iat_callsite_restore.py`** with a unit and a CLI layer, registered in the capability
-  registry as `call_site_restore`.
+  registry as `call_site_restore`. Its table search is the offline counterpart of the unpacker's
+  IAT-location routine, derived from the relation the rewrite leaves behind — the slot holds the
+  address the call targets — and not from that routine's code; the search refuses two candidate
+  tables, where that routine would have taken the run it found first.
 
 ## What was deliberately not asserted
 
