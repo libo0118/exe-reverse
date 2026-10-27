@@ -372,7 +372,10 @@ TOOL_NAMES = [
     ('cdb', 'command-line WinDbg engine'),
     ('gdb', 'MinGW debugging'),
     ('dumpbin', 'PE headers and imports (MSVC toolchain)'),
-    ('link', 'editbin/link for header edits (MSVC toolchain)'),
+    # `link` is deliberately absent: the name is GNU coreutils' hard-link utility on every Linux
+    # host and on Git Bash/MSYS, and a probe that reports it as present claims the MSVC toolchain on
+    # a machine that has none. `editbin` carries the same capability and no collision.
+    ('editbin', 'header edits (MSVC toolchain; link.exe is not probed by name)'),
     ('signtool', 'signature inspection and re-signing'),
     ('frida', 'runtime instrumentation'),
     ('frida-ps', 'process listing for frida'),

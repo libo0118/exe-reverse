@@ -154,6 +154,27 @@ on this host rather than an error.
 *Fix and check:* long values wrap onto continuation lines instead of being cut. A test asserts a long
 value survives into the output intact.
 
+**F17. The tool inventory reported the MSVC linker on a host that has coreutils instead.**
+
+*Symptom:* `hwprobe.py` printed `present link — editbin/link for header edits (MSVC toolchain)` on a
+Linux host whose `link` is `/usr/bin/link`, coreutils' hard-link utility. The tool block therefore
+claimed a capability the machine does not have, and the count of present tools was one too high.
+
+*Root cause:* the table probed a bare name through `shutil.which`. `link` is a name shared by two
+unrelated programs and the Unix one resolves first on every host that has coreutils — including Git
+Bash and MSYS installs on Windows, which is where a reader would most trust the row. Nothing checked
+that the resolved binary was the program the row named.
+
+*How it surfaced:* by reading the probe's own output while collecting host facts for the protected-
+sample run: a row claiming the MSVC linker sat beside `gdb`, a MinGW `gcc` and no `cl`, which is not
+a plausible toolchain.
+
+*Fix and check:* the row probes `editbin`, whose name has no Unix collision, and its note says that
+`link.exe` is not probed by name. `tests/unit/test_hwprobe_tool_table.py` pins the table against a
+named ambiguous list and, as the general form, runs `--version` on every probed tool that resolves on
+the host and fails if any of them identifies as GNU coreutils. `strings` stays in the table on
+purpose: binutils `strings` reads PE images, so that row is true on a Unix host.
+
 ## Repair-script defects
 
 **F16. A slot's magnitude was read as its meaning, so an ordinary import table looked protected.**
