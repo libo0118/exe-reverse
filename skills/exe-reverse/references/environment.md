@@ -58,7 +58,7 @@ the received baseline, the built output, and the control (an unmodified copy use
 the launch path and the environment behave normally). Label them in the record by hash, not by name,
 because names drift and hashes do not.
 
-Two file properties are worth checking once, because both change what a launch means:
+Three file properties are worth checking once, because each changes what a launch means:
 
 - **Alternate data streams.** A file that arrived through a browser or an archive extraction tool may
   carry a `Zone.Identifier` stream, and the OS may then gate its execution. The streams on a file are
@@ -68,6 +68,15 @@ Two file properties are worth checking once, because both change what a launch m
   size, same SHA-256; observed here against the desktop text editor in the system directory) is a
   convenient fixture, but its launch behaviour may depend on its location or on a component the
   original has and the copy does not. Treat an unexpected exit as an environment question first.
+- **Compatibility fixes the operating system applied by itself.** Windows keeps a per-program record
+  of compatibility fixes it has decided an executable needs, keyed to that executable's path, and
+  applies them on later launches; a program that crashed once can therefore behave differently on the
+  next run with byte-identical content (documented behaviour of the compatibility store; `unverified`
+  here, and the record lives under the current user's software hive in a key naming compatibility
+  flags). Unpacking is where this costs most: the packer and the target then run under different
+  conditions, and the difference is in neither file. A target that misbehaves only on this host, only
+  after an earlier failure, is a candidate; copying it to a different path is the cheapest test and
+  the result is worth recording, because it changes what "it ran once" means.
 
 ## Record the host, because it decides which routes exist
 

@@ -56,6 +56,7 @@ All of these come from the file itself, before any execution.
 | Entropy near maximum across an entire executable section on disk | Compressed or encrypted content | `inferred` |
 | Entry point RVA outside the first executable section | The stub is not the program; the real entry point is computed later | `inferred` |
 | Import directory present but resolving to one or two libraries | The real imports are resolved by the stub at run time | `inferred` |
+| Import directory present, and its slots hold tags, or addresses inside one section, instead of the modules they name | The table holds handles rather than addresses, and the call sites that used it were probably rewritten to reach the handle directly | `inferred` |
 | Import directory absent or pointing into a writable section | Import destruction, documented as a feature by more than one commercial protector | `observed` in this project's vendor-documentation pass |
 | A writable and executable section, or a section that becomes executable after a protection change | Self-modifying stub, or a run-time code region | `inferred` |
 | A thread-local-storage callback array pointing at code | Work is done before the entry point ever runs | `observed`: the PE specification documents the callback array as a null-terminated array of TLS callback functions, called with a process-attach reason when a new process has started |
@@ -65,6 +66,20 @@ All of these come from the file itself, before any execution.
 **Entropy is a heuristic, not a test.** A large embedded resource, a compressed installer payload, or a
 JPEG in a resource section produces the same reading as encrypted code. Confirm with a second kind of
 evidence, and record which evidence you used.
+
+## When the import layer is not an import table
+
+A protector can leave the import directory structurally intact and replace what it contains: each slot
+holds a handle or a stub address instead of a resolved import, and the calls that used to go through
+the table became relative calls to that stub. Both halves were changed together, so they are restored
+together — and the second half is a layout decision rather than a byte swap, because the rewritten
+call is one byte shorter than the indirect call it replaced.
+
+This is a different problem from a destroyed import directory, and it is the one that produces a dump
+which loads, runs, and dies at the first call into the platform. The identification evidence, the
+pairing rule and the cases that must be refused are in
+`references/iat-virtualization-and-call-site-rewriting.md`. This file keeps only the route decision:
+the damage is specific and recoverable, and the deliverable is a site list as much as it is a file.
 
 ## Locating the original entry point
 

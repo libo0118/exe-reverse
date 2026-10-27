@@ -154,6 +154,30 @@ on this host rather than an error.
 *Fix and check:* long values wrap onto continuation lines instead of being cut. A test asserts a long
 value survives into the output intact.
 
+## Repair-script defects
+
+**F16. A slot's magnitude was read as its meaning, so an ordinary import table looked protected.**
+
+*Symptom:* the import-layer repair's first version classified every slot whose value was below the
+image base as a handle, and its verdict rule turned that class into `needs-trace` — a
+protected-image verdict for a file that was never protected. Nothing about the output looked wrong:
+the classes were counted, the verdict followed from them, and the report was internally consistent.
+
+*Root cause:* an unbound import table holds RVAs, and an RVA is also a number below the image base.
+The classifier inferred intent from magnitude instead of testing whether the value resolves to
+something in the image, or whether a call targets it. The same mistake in the other direction would
+have called a real handle an address.
+
+*How it surfaced:* while reading `peutil.py`'s import walk to build the slot inventory. The reader
+returns the table's entries as they are in the file, which is what made "below the base" visibly
+ambiguous rather than obviously a handle.
+
+*Fix and check:* the classes are positions (`zero`, `below_image`, `in_image`, `above_image`) and the
+verdict follows from the pairing rather than from a class. The regression is
+`tests/unit/test_iat_callsite_restore.py::test_a_clean_image_reports_no_pairs`, which asserts
+`no-pairs` on a generated unbound image — the case the old rule reported as `needs-trace`. The
+reference states the correction in prose, because the same inference is easy to repeat by hand.
+
 ## Gate, harness and lint defects
 
 **F11. The hard index-row limit was computed and then unable to fail anything.**

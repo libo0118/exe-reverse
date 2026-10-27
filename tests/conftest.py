@@ -55,6 +55,10 @@ SCRIPT_FILES = (
     # script is neither in this tuple nor declared uncovered with a reason.
     "pe_triage.py",
     "pe_diff.py",
+    # The import-layer repair: it pairs a rewritten relative call with the slot that holds its
+    # target, and refuses the three cases a byte-swapping tool would corrupt. Its scenario is
+    # generated below, because the decisions it makes are about byte layout, not about any sample.
+    "iat_callsite_restore.py",
 )
 
 # A hang detector, not a performance assertion. Nothing in this suite is meant to be slow.
@@ -502,6 +506,89 @@ def build_fixture(fixture_dir, load_script, run_script):
 def fixtures(build_fixture):
     """The four generated images, addressed as ``fixtures.pe64`` / ``fixtures['pe32']``."""
     return FixtureSet({name: build_fixture(name) for name in FIXTURE_RECIPES})
+
+
+class IatScenario(object):
+    """A generated image carrying the six-byte decisions the repair script must make.
+
+    Five sites: one with the filler byte after the call, one with it before, one with no filler at
+    all, one whose target two slots both hold, and the slots themselves in a range the import
+    directory does not describe (which is the normal case for a captured image).
+    """
+
+    __slots__ = ("path", "pe_path", "base", "slot_rva", "dup_slot_rvas", "sites", "bitness")
+
+    def __init__(self, **kw):
+        for key in self.__slots__:
+            setattr(self, key, kw.get(key))
+
+    def __repr__(self):
+        return "IatScenario(%s)" % self.path
+
+
+@pytest.fixture(scope="session")
+def iat_scenario(tmp_path_factory, build_fixture, load_script):
+    """Build the scenario by editing a fixture the rest of the suite already uses.
+
+    Editing rather than synthesising is deliberate: the script's job is arithmetic over a real
+    header and a real section table, and a hand-built header would let a wrong RVA mapping agree
+    with itself. The fixture is copied first, so the shared build stays pristine for every other
+    test in the session.
+    """
+    peutil = load_script("peutil.py")
+    root = tmp_path_factory.mktemp("iat-scenario")
+    cache = {}
+
+    def _build(name="pe64"):
+        if name in cache:
+            return cache[name]
+        built = build_fixture(name)
+        pe = peutil.PE(built.data)
+        base = pe.image_base
+        psize = 8 if pe.is_pe32plus else 4
+        data = bytearray(built.data)
+
+        def put(rva, raw):
+            off = pe.rva_to_offset(rva)
+            assert off is not None, "scenario RVA %#x has no file offset" % rva
+            data[off:off + len(raw)] = raw
+
+        def call(rva, target_va):
+            return b"\xE8" + struct.pack("<i", target_va - (base + rva + 5))
+
+        target = base + 0x9000
+        target_dup = base + 0x9100
+        put(0x3020, target.to_bytes(psize, "little"))
+        put(0x3028, target_dup.to_bytes(psize, "little"))
+        put(0x3030, target_dup.to_bytes(psize, "little"))
+        # The generated .text is NOP-filled, so every context byte a case depends on is written
+        # explicitly. Without that, "NOP before" and "NOP after" hold everywhere and the three
+        # layout cases collapse into one.
+        put(0x11FF, b"\x00")
+        put(0x1200, call(0x1200, target) + b"\x90")
+        put(0x120F, b"\x90")
+        put(0x1211, call(0x1211, target) + b"\x00")
+        put(0x121F, b"\x00")
+        put(0x1220, call(0x1220, target) + b"\xC3")
+        put(0x122F, b"\x00")
+        put(0x1230, call(0x1230, target_dup) + b"\x90")
+
+        path = root / ("%s-iat.exe" % name)
+        path.write_bytes(bytes(data))
+        scenario = IatScenario(
+            path=path,
+            pe_path=built.path,
+            base=base,
+            slot_rva=0x3020,
+            dup_slot_rvas=(0x3028, 0x3030),
+            sites={"filler_after": 0x1200, "filler_before": 0x1211,
+                   "no_filler": 0x1220, "ambiguous": 0x1230},
+            bitness=64 if pe.is_pe32plus else 32,
+        )
+        cache[name] = scenario
+        return scenario
+
+    return _build
 
 
 @pytest.fixture(scope="session")

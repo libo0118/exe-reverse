@@ -146,6 +146,12 @@ the loader produced. In order:
    - *The entry point.* The address the process was executing is not automatically the image's entry
      point; the entry point is a header field, and it must be restored from a source rather than
      inferred from where the target happened to be.
+   - *Call sites that no longer read the table.* A protector that rewrote indirect calls into relative
+     calls left the dump with code that never touches the import slots, so repairing the slots restores
+     a table nothing reads. The dump carries the rewritten form and the repair is a second edit over
+     the first code section, one site at a time, with a layout question at each site.
+     `references/iat-virtualization-and-call-site-rewriting.md` states the pairing rule, the sixth-byte
+     decision and the cases that must be refused.
 6. **Repairing means, concretely:** a header that parses and whose directory RVAs and sizes agree with
    the laid-out sections; a section table whose raw offsets and sizes match the bytes actually written;
    an import situation that is either resolvable at load time or explicitly static with the binding

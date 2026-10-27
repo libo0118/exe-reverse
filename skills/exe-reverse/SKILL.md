@@ -143,6 +143,11 @@ Load the named file **before your next command**, not after your next three atte
 | Strings you expect are absent; the import table resolves almost nothing | `references/protectors-and-packers.md` |
 | One function is a many-thousand-line switch over a value that is loaded from memory | `references/virtualization-and-flattening.md` |
 | A dump runs but every call lands in a jump table, or the code differs after a restart | `references/protectors-and-packers.md` |
+| The import table parses, but its slots hold tags or addresses inside one section instead of the modules they name | `references/iat-virtualization-and-call-site-rewriting.md` |
+| Calls in the code are relative (`E8`) where the compiler emits `call [iat]` | `references/iat-virtualization-and-call-site-rewriting.md` |
+| A dump loads and dies at the first call into the platform | `references/iat-virtualization-and-call-site-rewriting.md` |
+| A dump works here and fails after a reboot or on another host | `references/iat-virtualization-and-call-site-rewriting.md` |
+| Every code breakpoint or pause triggers an exception storm, and a full-speed run is fine | `references/dynamic-debugging.md` |
 | The image you dumped will not load — sections are misaligned or headers are gone | `references/memory-and-dumps.md` |
 | The file checksum no longer matches and something now refuses the binary | `references/patching.md` |
 | Your signature-based patch worked on one version and misses on the next | `references/aob-and-signatures.md` |
@@ -218,6 +223,7 @@ is the most common way an hour disappears.
 | The same patch across several versions | `scripts/aob_scan.py`, then its `--across` mode against the other build | `references/aob-and-signatures.md` |
 | Runtime behaviour to be located | A debugger, then hardware breakpoints if software ones are detected | `references/dynamic-debugging.md` |
 | Code that cannot be read at all | Protector identification, then the unpack route | `references/protectors-and-packers.md` |
+| An import table that parses but holds handles, or relative calls where indirect calls belong | The pairing rule first; the site list is part of the deliverable | `references/iat-virtualization-and-call-site-rewriting.md` |
 | A .NET assembly | Managed tooling; do not start with a hex editor | `references/managed-dotnet.md` |
 | Unity IL2CPP (`GameAssembly.dll` + metadata) | Classify the metadata placement before any patch; the names and the code are separate files | `references/unity-il2cpp.md` |
 | A packaged Python program | Identify the packager and the interpreter version first; both decide whether anything else is readable | `references/python-runtime-bundles.md` |

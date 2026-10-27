@@ -45,6 +45,11 @@ tools/
 # is all it would take to commit them, so the rule is explicit here rather than resting on "nobody
 # has added them yet".
 .ref/
+# The same corpus under the undotted name. Both spellings exist because a clone lands as `ref/`
+# and a hand-made workspace as `.ref/`, and only one of them was covered: `git add -A` with the
+# undotted name staged 3.9 MB of third-party write-ups, upstream .git directories and GPL sources
+# into a repository that ships neither. One rule per spelling, so neither depends on the other.
+ref/
 
 # sandbox installs made while testing `npx skills add .` against this repo
 .claude/

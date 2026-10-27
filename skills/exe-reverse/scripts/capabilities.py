@@ -626,6 +626,9 @@ ATOMS = {
                                               'literals)', 'kind': 'file',
                                       'script': 'dart_snapshot_strings.py',
                                       'est_minutes': 0, 'basis': 'observed'},
+    'file:iat_callsite_restore.py': {'name': 'scripts/iat_callsite_restore.py (import-layer repair)',
+                                     'kind': 'file', 'script': 'iat_callsite_restore.py',
+                                     'est_minutes': 0, 'basis': 'observed'},
 
     # --- host capabilities, probed rather than assumed ------------------------
     'host:elevated': {
@@ -770,6 +773,15 @@ CAPABILITIES = {
         'scripts': ['pe_diff.py'],
         'note': 'Content-hash comparison with the volatile header fields normalised, so a '
                 'same-size replacement is caught and a rebuild is not reported as a change.',
+    },
+    'call_site_restore': {
+        'name': 'Restore call sites a protector rewrote, against their import slots',
+        'required': ['python310', 'file:iat_callsite_restore.py', 'artifact:dumped_image'],
+        'depends_on': ['pe_structure_read'],
+        'scripts': ['iat_callsite_restore.py'],
+        'note': 'Offline pairing by value, a six-byte rewrite with the filler byte decided per '
+                'site, and a refusal for the site whose sixth byte is the next instruction. It '
+                'repairs an import layer, never a protector: a virtualised region is untouched.',
     },
     'fixture_generation': {
         'name': 'Build a synthetic PE fixture offline',
@@ -1212,6 +1224,7 @@ SCRIPT_CAPABILITIES = {
     'make_fixture_pe.py': ['fixture_generation'],
     'scan_leaks.py': ['identity_scan'],
     'fold.py': ['record_folding'],
+    'iat_callsite_restore.py': ['call_site_restore'],
     'capabilities.py': ['host_capability_probe'],
     'doctor.py': ['host_capability_probe'],
     # Not a Python script, but it belongs to a capability all the same: it instruments a live

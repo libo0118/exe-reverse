@@ -42,6 +42,21 @@ count (which bit controls which slot, how execution breakpoints differ from data
 processor-specific and must be read from the processor specification for the exact family
 (`unverified` here — the numbers quoted above are the count only).
 
+**When every code breakpoint produces an exception storm, change the family, not the stealth.** A
+protected target can run to completion at full speed and die as soon as it is stopped: a distributed
+check reacts to the paused state, or to a byte that was replaced, and the response is a burst of
+exceptions that ends the process. Adding hiding options to the same instrument then buys a few more
+instructions and no more analysis, because the detector is not looking for a debugger — it is looking
+for the perturbation. Two rules follow, and they are measurements rather than preferences: a target
+that survives a full-speed run and dies on the first step has told you its detector is
+perturbation-based (`inferred`; confirm with the unattached control run described above), and the family that survives is
+the one that changes no byte and touches no debug register in the code being watched — a protection
+change on a *data* page, or a watch on a region the target allocated for itself. The instrument that
+worked in a reported session on this class of target was a memory-access breakpoint on a freshly
+allocated region, with no stepping and no register inspection while stopped. Treat that as a lead to
+test on your target, not as a procedure: the mechanism is "watch data, do not touch code", and the
+address is a property of the sample.
+
 **The decision, therefore:** if the region you need to break in is hashed, verified, or used as a
 self-check input, a software breakpoint is the wrong instrument and the finding it produces will be
 "the target died with no explanation". Move to hardware breakpoints, memory breakpoints, or

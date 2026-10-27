@@ -33,6 +33,11 @@ without a check.
 | Strings you expect are absent; the import table resolves almost nothing | `references/protectors-and-packers.md` |
 | One function is a many-thousand-line switch over a value that is loaded from memory | `references/virtualization-and-flattening.md` |
 | A dump runs but every call lands in a jump table, or the code differs after a restart | `references/protectors-and-packers.md` |
+| The import table parses, but its slots hold tags or addresses inside one section instead of the modules they name | `references/iat-virtualization-and-call-site-rewriting.md` |
+| Calls in the code are relative (`E8`) where the compiler emits `call [iat]` | `references/iat-virtualization-and-call-site-rewriting.md` |
+| A dump loads and dies at the first call into the platform | `references/iat-virtualization-and-call-site-rewriting.md` |
+| A dump works here and fails after a reboot or on another host | `references/iat-virtualization-and-call-site-rewriting.md` |
+| Every code breakpoint or pause triggers an exception storm, and a full-speed run is fine | `references/dynamic-debugging.md` |
 | The image you dumped will not load — sections are misaligned or headers are gone | `references/memory-and-dumps.md` |
 | The file checksum no longer matches and something now refuses the binary | `references/patching.md` |
 | Your signature-based patch worked on one version and misses on the next | `references/aob-and-signatures.md` |
@@ -97,6 +102,7 @@ reference that is loaded at the wrong moment costs context and answers nothing.
 | `references/memory-and-dumps.md` | process memory as evidence, and turning a dump into something loadable |
 | `references/anti-analysis.md` | the target fights back: which mechanism fired, and how to tell it from a broken host |
 | `references/protectors-and-packers.md` | the code cannot be read: recognising the layer and working through it |
+| `references/iat-virtualization-and-call-site-rewriting.md` | the import table holds handles and the calls stopped being indirect: pairing, rewriting, and what has to be refused |
 | `references/virtualization-and-flattening.md` | the code is readable but its shape is wrong: dispatchers, opaque predicates, virtual machines |
 | `references/symbolic-execution.md` | reading has stopped paying: when a solver or an emulator is the cheaper route |
 | `references/managed-dotnet.md` | a managed assembly, or a mixed-mode one, is the target |
@@ -130,6 +136,7 @@ explicit paths for anything it shells out to. `--help` on each one is the author
 | `scripts/pe_triage.py` | one-pass triage of an unknown binary: identity, build evidence, protective signals with their measurements, surface, and what to do next |
 | `scripts/pepatch.py` | equal-length byte patches from a spec or from the command line: read-only input, a new output file, an ambiguity guard, a length-provenance rule, checksum recomputation, and every patched byte re-read from the written file |
 | `scripts/aob_scan.py` | locate a byte pattern and report its hit count, each site's offset/RVA/section, a verdict (`unique` / `ambiguous` / `pervasive` / `no-match`), and hit-count comparison across two builds |
+| `scripts/iat_callsite_restore.py` | pair a relative call a protector left behind with the import slot that holds its target, restore the indirect call, and refuse the three cases a byte swap would corrupt: no sixth byte, two slots holding one address, two windows overlapping. Report-only unless `--out` is given |
 | `scripts/pe_diff.py` | compare two builds by content hash with the volatile header fields normalised, and report the differing ranges with the RVA each maps to |
 | `scripts/hwprobe.py` | report which routes **this host** supports: CPUID features read through a local stub, CPUID bits printed raw unless their meaning is verified, OS build and boot flags, privilege, and the tool inventory — with an `available` / `needs-<x>` / `unavailable` verdict per route |
 | `scripts/capabilities.py` | the capability registry: what each capability needs, how to detect it, which script implements it and which reference documents it |

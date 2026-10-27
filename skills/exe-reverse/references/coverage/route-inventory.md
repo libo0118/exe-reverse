@@ -31,6 +31,7 @@ becomes `run` only when someone runs it and records the output.
 | Byte patching | making a change that fits an existing instruction or constant slot | Python only, plus a copy to write to | `run` |
 | Signature location | finding a site across builds rather than at one address | Python only; a second build for the comparison | `run` |
 | Build comparison | locating what changed between two builds | two builds | `run` |
+| Import-layer repair | restoring the call sites a protector rewrote, once the code is decrypted | a rebuildable image, the address space it was captured in, and the slot values — plus a trace when the slots hold handles rather than addresses | `run` for the rewrite on a generated image; `argued` against a protected target |
 | Identity scanning | publishing derived material without publishing the target | Python only | `run` |
 | Managed assembly analysis | reading and changing a .NET assembly | a decompiler or disassembler (`ilspycmd`, `ildasm`) to read it, `de4dot` for a renamed one, an assembler or dnSpyEx to change it — the repository ships none | `mapped` |
 | Installer and package extraction | getting at the payload of an installer without running it | extraction tooling; the container type decides which | `mapped` |
